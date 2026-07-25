@@ -1,0 +1,947 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>마이그레이션 계획서 - 레거시 쇼핑몰 FSD 전환</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/devicon.min.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7/css/materialdesignicons.min.css" />
+<script id="plan-data">
+const PLAN = {
+  title: '레거시 쇼핑몰 FSD 마이그레이션',
+  type: 'migrate',
+  scope: '전체 프로젝트 구조 변경',
+  mdFile: 'plans/migrate/20260726-legacy-shop.md',
+  summary: '기존 Next.js 쇼핑몰(pages + components 플랫 구조)을 FSD 아키텍처로 전환',
+
+  // 현재 상태 분석 - 발견된 문제점
+  issues: [
+    { severity: 'critical', category: '거대 파일', icon: 'mdi-file-alert', file: 'src/components/CheckoutForm.tsx', lines: 380, desc: '380줄. 폼 유효성 검사 + 결제 API 호출 + UI 렌더링이 한 파일에 혼재', suggestion: 'features/checkout (폼 로직 + 유효성 검사) + widgets (UI 조합)으로 분리' },
+    { severity: 'critical', category: '로직/UI 혼재', icon: 'mdi-swap-horizontal', file: 'src/components/ProductCard.tsx', lines: 95, desc: 'cartApi.addToCart() 직접 호출. 표시 컴포넌트에 API 호출이 섞여있음', suggestion: 'widgets/product-list (UI) + features/cart의 useAddToCart 훅으로 분리. onAddToCart props 주입' },
+    { severity: 'critical', category: '로직/UI 혼재', icon: 'mdi-swap-horizontal', file: 'src/components/SearchBar.tsx', lines: 120, desc: 'productApi.search() 직접 호출 + debounce 로직 + UI가 한 파일에', suggestion: 'features/search (검색 로직 + API) + widgets (UI)로 분리' },
+    { severity: 'warning', category: '플랫 구조', icon: 'mdi-folder-alert', file: 'src/components/', lines: null, desc: '9개 컴포넌트가 역할 구분 없이 플랫하게 나열. Header, Footer, ProductCard, SearchBar가 같은 레벨', suggestion: 'FSD 레이어별로 분리 (widgets/features/shared)' },
+    { severity: 'warning', category: '타입 분산', icon: 'mdi-tag-off', file: 'src/types/', lines: null, desc: 'product.ts, cart.ts, user.ts가 별도 폴더에 분리되어 관련 API/훅과 거리가 멀음', suggestion: '각 entity 폴더의 model/types.ts로 이동' },
+    { severity: 'warning', category: '중복 코드', icon: 'mdi-content-copy', file: 'src/hooks/useCart.ts + src/components/CartSummary.tsx', lines: null, desc: '장바구니 합계 계산 로직이 useCart와 CartSummary 두 곳에 중복', suggestion: 'features/cart/model/useCart.ts에 통합' },
+    { severity: 'warning', category: '거대 파일', icon: 'mdi-file-alert', file: 'src/components/ProductList.tsx', lines: 180, desc: '180줄. 필터링 + 정렬 + 페이지네이션 + 목록 렌더링이 한 파일에', suggestion: 'features/search (필터/정렬) + widgets/product-list (목록 UI)로 분리' },
+    { severity: 'info', category: '개선 가능', icon: 'mdi-lightbulb', file: 'src/utils/formatPrice.ts', lines: 15, desc: '범용 유틸이 utils/ 폴더에 있음. FSD에서는 shared/lib/에 배치', suggestion: 'shared/lib/utils/formatPrice.ts로 이동' },
+    { severity: 'info', category: '개선 가능', icon: 'mdi-lightbulb', file: 'src/components/StarRating.tsx', lines: 45, desc: '도메인 무관 범용 UI 컴포넌트가 components/에 있음', suggestion: 'shared/ui/StarRating/으로 이동' },
+  ],
+
+  // Before 파일 → After 매핑 (moveTo는 layers의 파일 path와 매칭)
+  beforeAfter: {
+    before: [
+      { path: 'src/pages/', type: 'dir', issue: false },
+      { path: 'src/pages/index.tsx', type: 'file', issue: false, moveTo: 'src/app/page.tsx' },
+      { path: 'src/pages/products/[id].tsx', type: 'file', issue: false, moveTo: 'src/app/products/[id]/page.tsx' },
+      { path: 'src/pages/cart.tsx', type: 'file', issue: false, moveTo: 'src/app/cart/page.tsx' },
+      { path: 'src/pages/checkout.tsx', type: 'file', issue: false, moveTo: 'src/app/checkout/page.tsx' },
+      { path: 'src/components/', type: 'dir', issue: true },
+      { path: 'src/components/Header.tsx', type: 'file', issue: false, moveTo: 'src/widgets/header/ui/Header.tsx' },
+      { path: 'src/components/Footer.tsx', type: 'file', issue: false, moveTo: 'src/widgets/footer/ui/Footer.tsx' },
+      { path: 'src/components/ProductCard.tsx', type: 'file', issue: true, moveTo: 'src/widgets/product-list/ui/ProductCard.tsx' },
+      { path: 'src/components/ProductList.tsx', type: 'file', issue: true, moveTo: 'src/widgets/product-list/ui/ProductList.tsx' },
+      { path: 'src/components/CartItem.tsx', type: 'file', issue: false, moveTo: 'src/widgets/cart-view/ui/CartItem.tsx' },
+      { path: 'src/components/CartSummary.tsx', type: 'file', issue: true, moveTo: 'src/widgets/cart-view/ui/CartSummary.tsx' },
+      { path: 'src/components/CheckoutForm.tsx', type: 'file', issue: true, moveTo: 'src/features/checkout/ui/CheckoutForm.tsx' },
+      { path: 'src/components/SearchBar.tsx', type: 'file', issue: true, moveTo: 'src/features/search/ui/SearchBar.tsx' },
+      { path: 'src/components/StarRating.tsx', type: 'file', issue: false, moveTo: 'src/shared/ui/StarRating/StarRating.tsx' },
+      { path: 'src/hooks/', type: 'dir', issue: false },
+      { path: 'src/hooks/useCart.ts', type: 'file', issue: true, moveTo: 'src/features/cart/model/useCart.ts' },
+      { path: 'src/hooks/useProducts.ts', type: 'file', issue: false, moveTo: 'src/entities/product/model/useProducts.ts' },
+      { path: 'src/hooks/useAuth.ts', type: 'file', issue: false, moveTo: 'src/features/auth/model/useAuth.ts' },
+      { path: 'src/types/', type: 'dir', issue: true },
+      { path: 'src/types/product.ts', type: 'file', issue: false, moveTo: 'src/entities/product/model/types.ts' },
+      { path: 'src/types/cart.ts', type: 'file', issue: false, moveTo: 'src/entities/cart/model/types.ts' },
+      { path: 'src/types/user.ts', type: 'file', issue: false, moveTo: 'src/entities/user/model/types.ts' },
+      { path: 'src/api/', type: 'dir', issue: false },
+      { path: 'src/api/productApi.ts', type: 'file', issue: false, moveTo: 'src/entities/product/api/productApi.ts' },
+      { path: 'src/api/cartApi.ts', type: 'file', issue: false, moveTo: 'src/entities/cart/api/cartApi.ts' },
+      { path: 'src/api/authApi.ts', type: 'file', issue: false, moveTo: 'src/entities/user/api/authApi.ts' },
+      { path: 'src/utils/', type: 'dir', issue: false },
+      { path: 'src/utils/formatPrice.ts', type: 'file', issue: false, moveTo: 'src/shared/lib/utils/formatPrice.ts' },
+      { path: 'src/utils/formatDate.ts', type: 'file', issue: false, moveTo: 'src/shared/lib/utils/formatDate.ts' },
+      { path: 'src/styles/', type: 'dir', issue: false },
+      { path: 'src/styles/globals.css', type: 'file', issue: false, moveTo: 'src/shared/config/globals.scss' },
+    ],
+  },
+
+  layers: [
+    {
+      name: 'shared',
+      label: 'Shared',
+      color: '#f778ba',
+      bg: '#401f2d',
+      desc: '범용 코드 (도메인 무관)',
+      order: 0,
+      files: [
+        { path: 'src/shared/ui/StarRating/StarRating.tsx', type: 'MOVE', desc: 'components/StarRating.tsx에서 이동' },
+        { path: 'src/shared/ui/StarRating/index.ts', type: 'CREATE', desc: 'public API' },
+        { path: 'src/shared/lib/utils/formatPrice.ts', type: 'MOVE', desc: 'utils/formatPrice.ts에서 이동' },
+        { path: 'src/shared/lib/utils/formatDate.ts', type: 'MOVE', desc: 'utils/formatDate.ts에서 이동' },
+        { path: 'src/shared/config/globals.scss', type: 'MOVE', desc: 'styles/globals.css에서 이동 + SCSS 전환' },
+      ],
+    },
+    {
+      name: 'entities',
+      label: 'Entities',
+      color: '#d4a72c',
+      bg: '#40351f',
+      desc: '데이터 타입 + API (UI 없음)',
+      order: 1,
+      files: [
+        { path: 'src/entities/product/model/types.ts', type: 'MOVE', desc: 'types/product.ts에서 이동' },
+        { path: 'src/entities/product/api/productApi.ts', type: 'MOVE', desc: 'api/productApi.ts에서 이동' },
+        { path: 'src/entities/product/model/useProducts.ts', type: 'MOVE', desc: 'hooks/useProducts.ts에서 이동 (서버 상태)' },
+        { path: 'src/entities/product/index.ts', type: 'CREATE', desc: 'public API' },
+        { path: 'src/entities/cart/model/types.ts', type: 'MOVE', desc: 'types/cart.ts에서 이동' },
+        { path: 'src/entities/cart/api/cartApi.ts', type: 'MOVE', desc: 'api/cartApi.ts에서 이동' },
+        { path: 'src/entities/cart/index.ts', type: 'CREATE', desc: 'public API' },
+        { path: 'src/entities/user/model/types.ts', type: 'MOVE', desc: 'types/user.ts에서 이동' },
+        { path: 'src/entities/user/api/authApi.ts', type: 'MOVE', desc: 'api/authApi.ts에서 이동' },
+        { path: 'src/entities/user/index.ts', type: 'CREATE', desc: 'public API' },
+      ],
+    },
+    {
+      name: 'features',
+      label: 'Features',
+      color: '#56d364',
+      bg: '#1f402d',
+      desc: '사용자 동작 + 비즈니스 로직',
+      order: 2,
+      files: [
+        { path: 'src/features/cart/model/useCart.ts', type: 'MOVE', desc: 'hooks/useCart.ts에서 이동 + 리팩토링' },
+        { path: 'src/features/cart/index.ts', type: 'CREATE', desc: 'public API' },
+        { path: 'src/features/auth/model/useAuth.ts', type: 'MOVE', desc: 'hooks/useAuth.ts에서 이동' },
+        { path: 'src/features/auth/index.ts', type: 'CREATE', desc: 'public API' },
+        { path: 'src/features/search/ui/SearchBar.tsx', type: 'MOVE', desc: 'components/SearchBar.tsx에서 이동 + API 호출 분리' },
+        { path: 'src/features/search/ui/SearchBar.module.scss', type: 'CREATE', desc: '검색바 스타일' },
+        { path: 'src/features/search/index.ts', type: 'CREATE', desc: 'public API' },
+        { path: 'src/features/checkout/ui/CheckoutForm.tsx', type: 'MOVE', desc: 'components/CheckoutForm.tsx에서 이동' },
+        { path: 'src/features/checkout/ui/CheckoutForm.module.scss', type: 'CREATE', desc: '결제 폼 스타일' },
+        { path: 'src/features/checkout/index.ts', type: 'CREATE', desc: 'public API' },
+      ],
+    },
+    {
+      name: 'widgets',
+      label: 'Widgets',
+      color: '#a371f7',
+      bg: '#2d1f40',
+      desc: '페이지 섹션 조합',
+      order: 3,
+      files: [
+        { path: 'src/widgets/header/ui/Header.tsx', type: 'MOVE', desc: 'components/Header.tsx에서 이동' },
+        { path: 'src/widgets/header/ui/Header.module.scss', type: 'MOVE', desc: 'styles/Header.module.css에서 이동' },
+        { path: 'src/widgets/header/index.ts', type: 'CREATE', desc: 'public API' },
+        { path: 'src/widgets/footer/ui/Footer.tsx', type: 'MOVE', desc: 'components/Footer.tsx에서 이동' },
+        { path: 'src/widgets/footer/index.ts', type: 'CREATE', desc: 'public API' },
+        { path: 'src/widgets/product-list/ui/ProductList.tsx', type: 'MODIFY', desc: 'components/ProductList.tsx 이동 + entities import로 변경' },
+        { path: 'src/widgets/product-list/ui/ProductCard.tsx', type: 'MODIFY', desc: 'components/ProductCard.tsx 이동 + cartApi 직접 호출 제거' },
+        { path: 'src/widgets/product-list/ui/ProductList.module.scss', type: 'MOVE', desc: 'styles/ProductCard.module.css에서 이동' },
+        { path: 'src/widgets/product-list/index.ts', type: 'CREATE', desc: 'public API' },
+        { path: 'src/widgets/cart-view/ui/CartItem.tsx', type: 'MOVE', desc: 'components/CartItem.tsx에서 이동' },
+        { path: 'src/widgets/cart-view/ui/CartSummary.tsx', type: 'MOVE', desc: 'components/CartSummary.tsx에서 이동' },
+        { path: 'src/widgets/cart-view/index.ts', type: 'CREATE', desc: 'public API' },
+      ],
+    },
+    {
+      name: 'app',
+      label: 'App',
+      color: '#58a6ff',
+      bg: '#1f2d40',
+      desc: 'URL → widget 연결',
+      order: 4,
+      files: [
+        { path: 'src/app/page.tsx', type: 'CREATE', desc: '홈 (ProductList 위젯 배치)' },
+        { path: 'src/app/products/[id]/page.tsx', type: 'CREATE', desc: '상품 상세' },
+        { path: 'src/app/cart/page.tsx', type: 'CREATE', desc: '장바구니 (CartView 위젯 배치)' },
+        { path: 'src/app/checkout/page.tsx', type: 'CREATE', desc: '결제 (CheckoutForm 배치)' },
+        { path: 'src/app/layout.tsx', type: 'CREATE', desc: '공통 레이아웃 (Header + Footer)' },
+      ],
+    },
+  ],
+
+  steps: [
+    {
+      step: 1,
+      layer: 'shared',
+      title: '범용 코드 이동',
+      tasks: [
+        'StarRating 컴포넌트 → shared/ui/로 이동',
+        'formatPrice, formatDate → shared/lib/utils/로 이동',
+        'globals.css → shared/config/globals.scss로 이동 + SCSS 전환',
+        'index.ts public API 생성',
+      ],
+      done: 'import 경로만 변경, 기능 변화 없음',
+    },
+    {
+      step: 2,
+      layer: 'entities',
+      title: '데이터 모델 분리',
+      tasks: [
+        'types/ 파일들 → entities/*/model/types.ts로 이동',
+        'api/ 파일들 → entities/*/api/로 이동',
+        'useProducts 훅 → entities/product/model/로 이동 (서버 상태)',
+        '각 entity에 index.ts public API 생성',
+      ],
+      done: '타입 + API가 도메인별로 정리됨',
+    },
+    {
+      step: 3,
+      layer: 'features',
+      title: '비즈니스 로직 분리',
+      tasks: [
+        'useCart → features/cart/model/로 이동',
+        'useAuth → features/auth/model/로 이동',
+        'SearchBar → features/search/ui/로 이동 (API 직접 호출 → entities import로 변경)',
+        'CheckoutForm → features/checkout/ui/로 이동',
+        'ProductCard에서 cartApi 직접 호출하던 부분 → features/cart의 useCart로 분리',
+      ],
+      done: '인터랙션 로직이 features로 분리됨',
+    },
+    {
+      step: 4,
+      layer: 'widgets',
+      title: '화면 섹션 조합',
+      tasks: [
+        'Header, Footer → widgets/header, widgets/footer로 이동',
+        'ProductList + ProductCard → widgets/product-list로 이동 (entities/features import로 변경)',
+        'CartItem + CartSummary → widgets/cart-view로 이동',
+        '스타일 파일 함께 이동 + SCSS 전환',
+      ],
+      done: '화면 섹션이 독립 위젯으로 분리됨',
+    },
+    {
+      step: 5,
+      layer: 'app',
+      title: 'App Router 전환 + 라우팅',
+      tasks: [
+        'pages/ → app/ 디렉토리 전환 (Next.js App Router)',
+        '각 페이지에서 widgets만 import하여 배치',
+        'layout.tsx에 Header + Footer 공통 배치',
+        '기존 pages/ 디렉토리 삭제',
+      ],
+      done: '모든 URL 정상 접속, 기존 기능 동일',
+    },
+    {
+      step: 6,
+      layer: '정리',
+      title: '레거시 폴더 삭제 + 검증',
+      tasks: [
+        '비어있는 components/, hooks/, types/, api/, utils/, styles/ 삭제',
+        'npm run build — 빌드 확인',
+        'npm run format — 포맷 적용',
+        'npm run lint:fsd — FSD 구조 자동 검사',
+        '/review-fsd — 수동 검수',
+      ],
+      done: '레거시 흔적 없음, FSD 검수 통과',
+    },
+  ],
+
+  deps: [
+    { from: 'app/*', to: 'widgets/header' },
+    { from: 'app/*', to: 'widgets/footer' },
+    { from: 'app/', to: 'widgets/product-list' },
+    { from: 'app/cart', to: 'widgets/cart-view' },
+    { from: 'widgets/product-list', to: 'features/search' },
+    { from: 'widgets/product-list', to: 'features/cart' },
+    { from: 'widgets/product-list', to: 'entities/product' },
+    { from: 'widgets/cart-view', to: 'features/checkout' },
+    { from: 'widgets/cart-view', to: 'entities/cart' },
+    { from: 'features/cart', to: 'entities/cart' },
+    { from: 'features/cart', to: 'entities/product' },
+    { from: 'features/search', to: 'entities/product' },
+    { from: 'features/auth', to: 'entities/user' },
+  ],
+
+  decisions: [
+    {
+      id: 'router-migration',
+      title: 'Next.js App Router 동시 전환 여부',
+      desc: 'FSD 마이그레이션과 함께 pages/ → app/ 전환도 할지 결정합니다.',
+      type: 'single',
+      required: true,
+      options: [
+        { label: '동시 전환', desc: 'FSD + App Router를 한번에. 작업량 많지만 깔끔한 결과.', recommended: true },
+        { label: 'FSD만 먼저', desc: 'pages/ 유지한 채 FSD 구조만 적용. App Router는 나중에 별도 작업.' },
+      ],
+    },
+    {
+      id: 'style-migration',
+      title: '스타일 전환 방식',
+      desc: '기존 CSS/CSS Modules를 어떻게 전환할지 결정합니다.',
+      type: 'single',
+      required: true,
+      options: [
+        { label: 'SCSS Module로 전환', desc: '*.module.css → *.module.scss. 네스팅, 변수 활용 가능.', recommended: true },
+        { label: 'Tailwind 도입', desc: '기존 CSS 제거하고 Tailwind로 전환. 작업량 가장 많음.' },
+        { label: '현상 유지', desc: '기존 CSS Module 그대로. 파일 위치만 이동.' },
+      ],
+    },
+    {
+      id: 'breaking-risk',
+      title: 'ProductCard cartApi 직접 호출 처리',
+      desc: 'ProductCard에서 cartApi를 직접 호출하는 부분을 어떻게 분리할지 결정합니다.',
+      type: 'single',
+      required: true,
+      options: [
+        { label: 'features/cart에서 훅으로 제공', desc: 'useAddToCart 훅을 만들고 ProductCard에 onAddToCart props로 주입.', recommended: true },
+        { label: 'widget 내부에서 처리', desc: 'widgets/product-list 내부에서 cartApi 호출. FSD 원칙에는 약간 어긋남.' },
+      ],
+    },
+    {
+      id: 'phase-strategy',
+      title: '마이그레이션 전략',
+      desc: '한번에 전체 전환 vs 점진적 전환을 결정합니다.',
+      type: 'single',
+      required: false,
+      options: [
+        { label: '한번에 전환 (Big Bang)', desc: '모든 파일을 한 PR에서 이동. 빠르지만 위험도 높음.' },
+        { label: 'Phase별 PR', desc: 'Phase마다 별도 PR. 안전하지만 중간 상태에서 혼재 발생.', recommended: true },
+      ],
+    },
+  ],
+}
+</script>
+
+<script id="plan-md" type="text/markdown">
+# 레거시 쇼핑몰 FSD 마이그레이션
+
+## 1. 개요
+- 작업 유형: migrate
+- 요청 사항: 기존 Next.js 쇼핑몰(pages + components 플랫 구조)을 FSD 아키텍처로 전환
+- 현재 구조: pages 기반 + components/ 플랫 구조 + 로직/UI 혼재
+
+## 2. 현재 상태 분석
+
+### 현재 구조
+```
+src/
+├── pages/           ← App Router 아님 (pages 기반)
+├── components/      ← 모든 컴포넌트 플랫 나열 (역할 구분 없음)
+├── hooks/           ← 비즈니스 + 서버상태 + UI상태 혼재
+├── types/           ← 타입이 코드와 분리되어 있음
+├── api/             ← 모든 API 한 폴더
+├── utils/           ← 유틸
+└── styles/          ← 스타일
+```
+
+### 발견된 문제
+- **components/ 플랫 구조**: Header, ProductCard, SearchBar가 같은 레벨에 혼재
+- **로직/UI 혼재**: ProductCard에서 cartApi 직접 호출
+- **hooks 혼재**: useProducts(서버 상태), useCart(비즈니스 로직), useAuth(인증) 구분 없음
+- **타입 분리**: types/가 별도 폴더에 있어 관련 코드와 거리가 멀음
+
+## 3. FSD 레이어 배치
+
+| 현재 경로 | 이동 경로 | 레이어 | 이유 |
+|-----------|-----------|--------|------|
+| `types/product.ts` | `entities/product/model/types.ts` | entities | 도메인 타입 |
+| `api/productApi.ts` | `entities/product/api/productApi.ts` | entities | 데이터 API |
+| `hooks/useProducts.ts` | `entities/product/model/useProducts.ts` | entities | 서버 상태 |
+| `types/cart.ts` | `entities/cart/model/types.ts` | entities | 도메인 타입 |
+| `api/cartApi.ts` | `entities/cart/api/cartApi.ts` | entities | 데이터 API |
+| `types/user.ts` | `entities/user/model/types.ts` | entities | 도메인 타입 |
+| `api/authApi.ts` | `entities/user/api/authApi.ts` | entities | 데이터 API |
+| `hooks/useCart.ts` | `features/cart/model/useCart.ts` | features | 비즈니스 로직 |
+| `hooks/useAuth.ts` | `features/auth/model/useAuth.ts` | features | 인증 로직 |
+| `components/SearchBar.tsx` | `features/search/ui/SearchBar.tsx` | features | 사용자 액션 |
+| `components/CheckoutForm.tsx` | `features/checkout/ui/CheckoutForm.tsx` | features | 사용자 액션 |
+| `components/Header.tsx` | `widgets/header/ui/Header.tsx` | widgets | 공통 섹션 |
+| `components/Footer.tsx` | `widgets/footer/ui/Footer.tsx` | widgets | 공통 섹션 |
+| `components/ProductList.tsx` | `widgets/product-list/ui/ProductList.tsx` | widgets | 페이지 섹션 |
+| `components/ProductCard.tsx` | `widgets/product-list/ui/ProductCard.tsx` | widgets | 위젯 내부 |
+| `components/CartItem.tsx` | `widgets/cart-view/ui/CartItem.tsx` | widgets | 위젯 내부 |
+| `components/CartSummary.tsx` | `widgets/cart-view/ui/CartSummary.tsx` | widgets | 위젯 내부 |
+| `components/StarRating.tsx` | `shared/ui/StarRating/StarRating.tsx` | shared | 범용 UI |
+| `utils/formatPrice.ts` | `shared/lib/utils/formatPrice.ts` | shared | 범용 유틸 |
+| `utils/formatDate.ts` | `shared/lib/utils/formatDate.ts` | shared | 범용 유틸 |
+| `styles/globals.css` | `shared/config/globals.scss` | shared | 전역 스타일 |
+
+## 4. 작업 순서
+
+Phase별 순차 실행, 매 Phase 빌드 확인.
+
+## 5. Import 의존성 (마이그레이션 후)
+
+```
+app/* → widgets/header + widgets/footer
+app/ → widgets/product-list
+app/cart → widgets/cart-view
+widgets/product-list → features/search + features/cart + entities/product
+widgets/cart-view → features/checkout + entities/cart
+features/cart → entities/cart + entities/product
+features/search → entities/product
+features/auth → entities/user
+```
+
+## 6. 위험 요소
+- **pages → app 전환**: 라우팅 방식 변경으로 일시적 깨짐 가능
+- **ProductCard 리팩토링**: cartApi 직접 호출 → props 주입으로 변경 필요
+- **import 경로 일괄 변경**: 모든 파일에 영향
+- **기존 테스트**: 경로 변경으로 깨질 수 있음
+
+## 7. FSD 검증 체크리스트
+- ✅ 단방향 의존성: app → widgets → features → entities → shared
+- ✅ entities에 UI 없음 (타입 + API만)
+- ✅ shared에 도메인 코드 없음 (StarRating, formatPrice만)
+- ✅ features끼리 교차 import 없음
+- ✅ 각 슬라이스 index.ts public API
+</script>
+
+<style>
+  :root {
+    --bg: #0f1117; --surface: #161b22; --border: #2d333b; --text: #e1e4e8; --muted: #8b949e;
+    --primary: #58a6ff; --primary-weak: #1c2d44; --primary-border: #264a78;
+    --good: #3fb950; --good-weak: #1a3028; --good-border: #26633a; --warn: #d29922;
+    --radius: 12px; --shadow: 0 1px 3px rgba(0,0,0,.3), 0 1px 2px rgba(0,0,0,.2);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; background: var(--bg); color: var(--text); line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 32px 20px 200px; }
+  header.plan-head { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px 26px; box-shadow: var(--shadow); margin-bottom: 16px; }
+  .plan-head h1 { margin: 0 0 6px; font-size: 22px; letter-spacing: -.01em; }
+  .plan-summary { color: var(--muted); margin: 8px 0 16px; font-size: 15px; }
+  .badges { display: flex; gap: 8px; flex-wrap: wrap; }
+  .badge { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: var(--primary-weak); color: var(--primary); border: 1px solid var(--primary-border); }
+  .badge.type-migrate { background:#3d351f; color:#d29922; border-color:#6e5a30; }
+  .badge.scope { background:#1c2128; color:var(--muted); border-color:var(--border); }
+  .md-link { display:inline-block; margin-top:14px; font-size:13px; color:var(--muted); text-decoration:none; }
+  .md-link:hover { color: var(--primary); text-decoration: underline; }
+  .md-link code { background:#1c2128; padding:2px 6px; border-radius:6px; font-size:12px; }
+  .statusbar { display:flex; align-items:center; gap:10px; border-radius: var(--radius); padding: 12px 18px; margin: 24px 0; font-size: 14px; font-weight: 600; border: 1px solid var(--border); }
+  .statusbar.pending { background:#2a2218; border-color:#6e5a30; color:#d29922; }
+  .statusbar.confirmed { background:var(--good-weak); border-color:var(--good-border); color:#3fb950; }
+  .statusbar .dot { width:9px; height:9px; border-radius:50%; flex:none; }
+  .statusbar.pending .dot { background:#d29922; }
+  .statusbar.confirmed .dot { background:var(--good); }
+  .section-title { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin: 0 0 12px 2px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 22px; margin-bottom: 16px; box-shadow: var(--shadow); }
+  .card.unresolved { border-color: #6e5a30; }
+  .card.confirmed { border-color: var(--good-border); background: #1a2820; }
+  .card-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+  .card-title { font-size: 16px; font-weight: 700; margin: 0; }
+  .card-desc { color: var(--muted); font-size: 14px; margin: 4px 0 16px; }
+  .pick-tag { font-size:11px; font-weight:700; color:var(--muted); white-space:nowrap; border:1px solid var(--border); border-radius:999px; padding:2px 9px; }
+  .pick-tag.done { color:var(--good); border-color:var(--good-border); background:var(--good-weak); }
+  .options { display: flex; flex-direction: column; gap: 8px; }
+  .option { display: flex; align-items: flex-start; gap: 12px; border: 1.5px solid var(--border); border-radius: 10px; padding: 12px 14px; cursor: pointer; transition: border-color .12s, background .12s; background: var(--surface); }
+  .option:hover { border-color: #484f58; background: #1c2128; }
+  .option.selected { border-color: var(--primary); background: var(--primary-weak); }
+  .option .marker { flex: none; width: 20px; height: 20px; margin-top: 1px; border: 2px solid #484f58; background:var(--surface); display:grid; place-items:center; }
+  .option[data-type="single"] .marker { border-radius: 50%; }
+  .option[data-type="multi"] .marker { border-radius: 6px; }
+  .option.selected .marker { border-color: var(--primary); background: var(--primary); }
+  .option.selected .marker::after { content: ''; width: 8px; height: 8px; background:#fff; border-radius:2px; }
+  .option[data-type="single"].selected .marker::after { border-radius: 50%; }
+  .option .opt-body { flex: 1; }
+  .opt-label { font-weight: 600; font-size: 14.5px; }
+  .opt-label .rec { font-size:11px; font-weight:700; color:var(--good); margin-left:6px; background:var(--good-weak); border:1px solid var(--good-border); padding:1px 7px; border-radius:999px; }
+  .opt-desc { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .card.confirmed .option { cursor: default; }
+  .card.confirmed .option:hover { border-color: var(--border); background: var(--surface); }
+  .card.confirmed .option.selected { border-color: var(--good-border); background: var(--good-weak); }
+  .card.confirmed .option.selected .marker { border-color: var(--good); background: var(--good); }
+  .card.confirmed .option:not(.selected) { opacity: .45; }
+  .notes-area { width:100%; background:#0d1117; color:var(--text); min-height:70px; border:1.5px solid var(--border); border-radius:10px; padding:12px 14px; font-size:14px; font-family:inherit; resize:vertical; }
+  .plan-body { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px 32px; box-shadow: var(--shadow); margin-top: 8px; }
+  .plan-body h1,.plan-body h2,.plan-body h3,.plan-body h4 { line-height: 1.3; letter-spacing: -.01em; margin: 1.4em 0 .5em; }
+  .plan-body > :first-child { margin-top: 0; }
+  .plan-body h1 { font-size: 22px; border-bottom: 2px solid var(--border); padding-bottom: .3em; }
+  .plan-body h2 { font-size: 19px; border-bottom: 1px solid var(--border); padding-bottom: .25em; }
+  .plan-body h3 { font-size: 16.5px; }
+  .plan-body p { margin: .6em 0; font-size: 14.5px; }
+  .plan-body ul,.plan-body ol { margin: .5em 0; padding-left: 1.4em; font-size: 14.5px; }
+  .plan-body li { margin: .25em 0; }
+  .plan-body strong { font-weight: 700; color: var(--text); }
+  .plan-body code { background: #1c2128; color: #f78166; padding: 1.5px 6px; border-radius: 6px; font-size: 12.8px; font-family: 'SF Mono', Menlo, Consolas, monospace; }
+  .plan-body pre.md-code { background: #0d1117; border: 1px solid var(--border); color: #e2e8f0; border-radius: 10px; padding: 14px 16px; overflow-x: auto; margin: .8em 0; }
+  .plan-body pre.md-code code { background: none; color: inherit; padding: 0; font-size: 12.8px; }
+  .plan-body table { border-collapse: collapse; width: 100%; margin: .9em 0; font-size: 13.5px; display: block; overflow-x: auto; }
+  .plan-body th,.plan-body td { border: 1px solid var(--border); padding: 7px 11px; text-align: left; vertical-align: top; }
+  .plan-body th { background: #1c2128; font-weight: 700; white-space: nowrap; color: var(--muted); }
+  .plan-body tbody tr:nth-child(even) { background: #0d1117; }
+  .plan-body hr { border: none; border-top: 1px solid var(--border); margin: 1.6em 0; }
+
+  /* 분석 결과 */
+  .analysis-summary { display: flex; gap: 10px; margin: 16px 0; flex-wrap: wrap; }
+  .analysis-count { padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+  .analysis-count.critical { background: #3d1f1f; color: #f85149; }
+  .analysis-count.warning { background: #2a2218; color: #d29922; }
+  .analysis-count.info { background: #1c2d44; color: #58a6ff; }
+  .issue-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; margin-bottom: 8px; }
+  .issue-card.critical { border-left: 3px solid #f85149; }
+  .issue-card.warning { border-left: 3px solid #d29922; }
+  .issue-card.info { border-left: 3px solid #58a6ff; }
+  .issue-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .issue-severity { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; }
+  .issue-severity.critical { background: #3d1f1f; color: #f85149; }
+  .issue-severity.warning { background: #2a2218; color: #d29922; }
+  .issue-severity.info { background: #1c2d44; color: #58a6ff; }
+  .issue-category { font-size: 12px; color: var(--muted); font-weight: 600; }
+  .issue-file { font-family: 'SF Mono', Menlo, monospace; font-size: 12px; color: var(--primary); }
+  .issue-lines { font-size: 11px; color: var(--muted); margin-left: 6px; }
+  .issue-desc { font-size: 13px; color: var(--muted); margin: 4px 0; }
+  .issue-suggestion { font-size: 12.5px; color: var(--good); display: flex; align-items: flex-start; gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 1px solid #1c2128; }
+
+  /* Before 트리 */
+  .before-panel { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 16px 0; }
+  .before-title { padding: 10px 14px; font-size: 13px; font-weight: 700; background: var(--surface); color: var(--text); display: flex; align-items: center; gap: 6px; }
+  .before-file { cursor: pointer; transition: background .12s; }
+  .before-file:hover { background: rgba(255,255,255,.04); }
+  .before-file.active { background: rgba(88,166,255,.1); }
+  .before-move-tag { font-size: 10px; padding: 1px 6px; border-radius: 3px; margin-left: auto; font-family: monospace; opacity: 0; transition: opacity .15s; white-space: nowrap; }
+  .before-file:hover .before-move-tag, .before-file.active .before-move-tag { opacity: 1; }
+  .fsd-highlight { background: rgba(88,166,255,.15); border-radius: 4px; }
+  .migrate-columns { position: relative; }
+  .fsd-highlight { animation: fsdPulse 0.6s ease 5; border-radius: 4px; }
+  @keyframes fsdPulse { 0%,100% { background: transparent; } 50% { background: rgba(88,166,255,.2); } }
+
+  /* Before + FSD 레이어 좌우 배치 */
+  .migrate-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 16px 0; position: relative; }
+  @media(max-width:800px) { .migrate-columns { grid-template-columns: 1fr; } }
+  .migrate-col-title { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
+
+  /* FSD 파일트리 */
+  .fsd-flow { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 16px 0 20px; flex-wrap: wrap; }
+  .fsd-flow-step { padding: 8px 16px; border-radius: 10px; font-size: 13px; font-weight: 700; font-family: monospace; border: 2px solid; text-align: center; min-width: 90px; }
+  .fsd-flow-step .count { font-size: 11px; font-weight: 400; opacity: .7; display: block; margin-top: 2px; }
+  .fsd-flow-arrow { color: var(--muted); font-size: 18px; }
+  .layer-tree { margin-bottom: 10px; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); }
+  .layer-tree-head { padding: 10px 16px; display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; border-radius: var(--radius); }
+  .layer-tree-head:hover { filter: brightness(1.08); }
+  .layer-tree-head .layer-name { font-size: 13.5px; font-weight: 700; font-family: monospace; }
+  .layer-tree-head .layer-desc { font-size: 12px; opacity: .65; margin-left: 4px; }
+  .layer-tree-head .file-count { font-size: 11px; font-weight: 600; opacity: .5; margin-left: auto; }
+  .layer-tree-head .arrow-icon { transition: transform .15s; font-size: 10px; opacity: .5; }
+  .layer-tree-head .arrow-icon.open { transform: rotate(90deg); }
+  .tree-body { display: none; background: #1c2128; padding: 8px 12px; }
+  .tree-body.open { display: block; }
+  .tree-item { padding: 0; }
+  .tree-item-inner { display: flex; align-items: center; gap: 0; padding: 5px 12px 5px 4px; font-size: 13px; border-radius: 6px; }
+  .tree-indent { display: flex; align-items: center; flex-shrink: 0; }
+  .tree-file-icon { font-size: 13px; margin-right: 6px; flex-shrink: 0; display: flex; align-items: center; }
+  .tree-file-icon svg { display: block; }
+  .tree-filename { font-family: 'SF Mono', Menlo, monospace; font-size: 12.5px; font-weight: 500; }
+  .tree-tag { font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 3px; margin-left: 8px; flex-shrink: 0; }
+  .tree-tag.CREATE { background: #1a3028; color: #3fb950; }
+  .tree-tag.MODIFY { background: #2a2218; color: #d29922; }
+  .tree-tag.MOVE { background: #1c2d44; color: #58a6ff; }
+  .tree-tag.DELETE { background: #3d1f1f; color: #f85149; }
+  .tree-desc { font-size: 12px; color: var(--muted); margin-left: auto; padding-left: 12px; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px; }
+  .tree-folder-toggle:hover { background: rgba(255,255,255,.03); border-radius: 4px; }
+  .tree-folder-children { }
+  .tree-folder-children.collapsed { display: none; }
+  @media(max-width:600px) { .tree-desc { display: none; } }
+
+  /* 타임라인 */
+  .timeline { position: relative; padding-left: 28px; margin: 16px 0; }
+  .timeline::before { content: ''; position: absolute; left: 11px; top: 0; bottom: 0; width: 2px; background: var(--border); border-radius: 1px; }
+  .tl-step { position: relative; margin-bottom: 20px; }
+  .tl-step:last-child { margin-bottom: 0; }
+  .tl-dot { position: absolute; left: -28px; top: 0; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: var(--text); background: #30363d; z-index: 1; }
+  .tl-card { border-radius: 10px; padding: 14px 18px; background: var(--surface); border: 1px solid var(--border); }
+  .tl-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .tl-layer { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; font-family: monospace; background: #1c2128; color: var(--muted); }
+  .tl-title { font-size: 14px; font-weight: 600; color: var(--text); }
+  .tl-tasks { list-style: none; padding: 0; margin: 0; }
+  .tl-tasks li { font-size: 13px; color: var(--muted); padding: 3px 0; display: flex; align-items: flex-start; gap: 6px; }
+  .tl-tasks li::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: #484f58; flex-shrink: 0; margin-top: 7px; }
+  .tl-done { margin-top: 10px; font-size: 12px; padding: 6px 10px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; background: var(--good-weak); color: var(--good); }
+
+  .actionbar { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(13,17,23,.92); backdrop-filter: blur(8px); border-top: 1px solid var(--border); box-shadow: 0 -2px 12px rgba(0,0,0,.3); padding: 14px 20px; }
+  .actionbar-inner { max-width: 880px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+  .status { font-size: 13px; color: var(--muted); flex: 1; }
+  .status b { color: var(--text); }
+  button { font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; border-radius: 9px; padding: 11px 18px; border: 1px solid var(--border); background: #21262d; color: var(--text); transition: filter .12s, background .12s; }
+  button:hover { background: #30363d; }
+  button.primary { background: #238636; color:#fff; border-color: #238636; }
+  button.primary:hover { filter: brightness(1.06); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  details.preview { margin: 8px 0 24px; }
+  details.preview summary { cursor:pointer; font-size:13px; color:var(--muted); padding:6px 0; }
+  pre.prompt-out { background:#0d1117; color:#e2e8f0; border: 1px solid var(--border); border-radius:10px; padding:16px 18px; font-size:13px; line-height:1.6; white-space:pre-wrap; word-break:break-word; font-family: 'SF Mono', Menlo, Consolas, monospace; margin: 4px 0 0; }
+  .toast { position: fixed; bottom: 84px; left: 50%; transform: translateX(-50%) translateY(20px); background: #238636; color:#fff; padding: 10px 20px; border-radius: 999px; font-size: 14px; font-weight: 600; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; box-shadow: var(--shadow); z-index: 50; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="plan-head">
+    <h1 id="p-title"></h1>
+    <p class="plan-summary" id="p-summary"></p>
+    <div class="badges"><span class="badge" id="p-type"></span><span class="badge scope" id="p-scope"></span></div>
+    <a class="md-link" id="p-mdlink" href="#"></a>
+  </header>
+  <p class="section-title" id="body-title" style="display:none">작업계획서 상세</p>
+  <article class="plan-body" id="plan-body" style="display:none"></article>
+  <div class="statusbar" id="statusbar"><span class="dot"></span><span id="statusbar-text"></span></div>
+  <div id="decisions-wrap">
+    <p class="section-title" id="decisions-title">결정 사항 — 선택 후 하단 [프롬프트로 복사]</p>
+    <div id="decisions"></div>
+    <div class="card" id="notes-card">
+      <h3 class="card-title">추가 메모 (선택)</h3>
+      <p class="card-desc">결정 외에 전달할 제약/우선순위/주의사항이 있으면 적어주세요.</p>
+      <textarea class="notes-area" id="notes" placeholder="예: 기존 테스트는 일단 무시하고 구조만 변경"></textarea>
+    </div>
+    <details class="preview"><summary>복사될 프롬프트 미리보기</summary><pre class="prompt-out" id="preview"></pre></details>
+  </div>
+</div>
+<div class="actionbar" id="actionbar">
+  <div class="actionbar-inner">
+    <div class="status" id="status"></div>
+    <button id="btn-json">JSON 복사</button>
+    <button class="primary" id="btn-copy">프롬프트로 복사</button>
+  </div>
+</div>
+<div class="toast" id="toast">복사되었습니다</div>
+<script>
+const _fileIconMap = { '.tsx':'react','.ts':'typescript','.scss':'sass','.css':'css3','.json':'nodejs','.md':'markdown','.html':'html5','.js':'javascript','.jsx':'react' };
+function getFileIcon(name) { const ext = '.' + name.split('.').pop(); const d = _fileIconMap[ext]; return d ? '<i class="devicon-'+d+'-plain colored" style="font-size:16px"></i>' : '<i class="mdi mdi-file-outline" style="font-size:16px;color:#8b949e"></i>'; }
+function highlightMove(el) {
+  // 기존 상태 클리어
+  document.querySelectorAll('.before-file.active').forEach(e => e.classList.remove('active'));
+  document.querySelectorAll('.fsd-highlight').forEach(e => e.classList.remove('fsd-highlight'));
+  document.querySelectorAll('.move-line').forEach(e => e.remove());
+
+  el.classList.add('active');
+  const moveTo = el.dataset.moveTo;
+  if (!moveTo) return;
+
+  // FSD 트리에서 대상 파일 찾기 (data-fsd-path로 정확 매칭)
+  const moveToPath = moveTo.replace('src/', '');
+  let targetRow = null;
+
+  document.querySelectorAll('[data-fsd-path]').forEach(row => {
+    if (row.dataset.fsdPath === moveToPath) {
+      targetRow = row;
+      row.classList.add('fsd-highlight');
+
+      // 부모 폴더 열기
+      let parent = row.closest('.tree-folder-children');
+      while (parent) {
+        parent.classList.remove('collapsed');
+        const icon = document.getElementById(parent.id + '-icon');
+        if (icon) icon.className = 'mdi mdi-folder-open';
+        parent = parent.parentElement?.closest('.tree-folder-children');
+      }
+      let layerBody = row.closest('.tree-body');
+      if (layerBody && !layerBody.classList.contains('open')) {
+        layerBody.classList.add('open');
+        layerBody.previousElementSibling?.querySelector('.arrow-icon')?.classList.add('open');
+      }
+    }
+  });
+
+  if (!targetRow) return;
+
+  // 대상 파일로 스크롤 + 깜빡임
+  setTimeout(() => targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+}
+
+function toggleFolder(id) {
+  const children = document.getElementById(id);
+  const icon = document.getElementById(id + '-icon');
+  children.classList.toggle('collapsed');
+  icon.className = children.classList.contains('collapsed') ? 'mdi mdi-folder' : 'mdi mdi-folder-open';
+}
+(function () {
+  const state = {};
+  const el = (tag, cls, html) => { const n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n; };
+  const esc = (s) => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const decidedList = (d) => d.decided == null ? null : Array.isArray(d.decided) ? d.decided : [d.decided];
+  const isConfirmed = (d) => decidedList(d) !== null;
+  const allConfirmed = () => PLAN.decisions.length > 0 && PLAN.decisions.every(d => !d.required || isConfirmed(d));
+
+  document.getElementById('p-title').textContent = PLAN.title;
+  document.getElementById('p-summary').textContent = PLAN.summary || '';
+  const tb = document.getElementById('p-type'); tb.textContent = PLAN.type; tb.classList.add('type-' + PLAN.type);
+  document.getElementById('p-scope').textContent = '범위: ' + PLAN.scope;
+  const ml = document.getElementById('p-mdlink'); ml.innerHTML = '원본 → <code>' + esc(PLAN.mdFile) + '</code>'; ml.href = PLAN.mdFile.split('/').pop();
+
+  const container = document.getElementById('decisions');
+  PLAN.decisions.forEach(dec => {
+    const confirmed = isConfirmed(dec); const preset = decidedList(dec) || [];
+    state[dec.id] = { picks: new Set(preset) };
+    const card = el('div', 'card' + (confirmed ? ' confirmed' : '')); card.dataset.id = dec.id;
+    card.appendChild(el('div', 'card-head', '<h3 class="card-title">' + esc(dec.title) + (dec.required ? ' *' : '') + '</h3><span class="pick-tag">' + (dec.type === 'multi' ? '복수 선택' : '택1') + '</span>'));
+    if (dec.desc) card.appendChild(el('p', 'card-desc', esc(dec.desc)));
+    const opts = el('div', 'options');
+    dec.options.forEach(opt => {
+      const row = el('div', 'option'); row.dataset.type = dec.type;
+      if (preset.includes(opt.label)) row.classList.add('selected');
+      row.innerHTML = '<div class="marker"></div><div class="opt-body"><div class="opt-label">' + esc(opt.label) + (opt.recommended ? '<span class="rec">추천</span>' : '') + '</div>' + (opt.desc ? '<div class="opt-desc">' + esc(opt.desc) + '</div>' : '') + '</div>';
+      if (!confirmed) row.addEventListener('click', () => { const p = state[dec.id].picks; if (dec.type === 'single') { p.clear(); opts.querySelectorAll('.option').forEach(n => n.classList.remove('selected')); p.add(opt.label); row.classList.add('selected'); } else { if (p.has(opt.label)) { p.delete(opt.label); row.classList.remove('selected'); } else { p.add(opt.label); row.classList.add('selected'); } } render(); });
+      opts.appendChild(row);
+    });
+    card.appendChild(opts); container.appendChild(card);
+  });
+
+  function valueFor(d) { return [...state[d.id].picks].join(', '); }
+  function unresolved() { return PLAN.decisions.filter(d => d.required && state[d.id].picks.size === 0); }
+  function buildPrompt() {
+    const l = ['[작업계획서 결정사항 확정] ' + PLAN.title, '', '아래 결정사항으로 ' + PLAN.mdFile + ' 계획서를 확정하고 진행해주세요.', ''];
+    PLAN.decisions.forEach((d, i) => l.push((i+1) + '. ' + d.title + ': ' + (valueFor(d) || '(미결정)')));
+    l.push('', '추가 메모: ' + (document.getElementById('notes').value.trim() || '(없음)'));
+    return l.join('\n');
+  }
+  function buildJson() {
+    const o = { title: PLAN.title, mdFile: PLAN.mdFile, decisions: {}, notes: document.getElementById('notes').value.trim() };
+    PLAN.decisions.forEach(d => { o.decisions[d.title] = valueFor(d); });
+    return JSON.stringify(o, null, 2);
+  }
+  function render() {
+    PLAN.decisions.forEach(d => {
+      const card = container.querySelector('[data-id="'+d.id+'"]'), tag = card.querySelector('.pick-tag');
+      const decided = state[d.id].picks.size > 0;
+      card.classList.toggle('unresolved', d.required && !decided && !isConfirmed(d));
+      if (decided) { tag.classList.add('done'); tag.textContent = (isConfirmed(d) ? '✅ 확정 · ' : '✓ ') + valueFor(d); }
+      else { tag.classList.remove('done'); tag.textContent = d.type === 'multi' ? '복수 선택' : '택1'; }
+    });
+    const left = unresolved(), st = document.getElementById('status');
+    if (left.length === 0) st.innerHTML = '<b>모든 필수 결정 완료.</b> 복사해서 채팅에 붙여넣으세요.';
+    else st.innerHTML = '필수 결정 <b>' + left.length + '개</b> 남음: ' + left.map(d => esc(d.title)).join(', ');
+    document.getElementById('btn-copy').disabled = left.length > 0;
+    document.getElementById('preview').textContent = buildPrompt();
+  }
+  function applyLifecycle() {
+    const confirmed = allConfirmed(), bar = document.getElementById('statusbar'), bt = document.getElementById('statusbar-text');
+    if (confirmed) { bar.className = 'statusbar confirmed'; bt.textContent = '✅ 확정 완료'; document.getElementById('notes-card').style.display='none'; document.querySelector('details.preview').style.display='none'; document.getElementById('actionbar').style.display='none'; document.querySelector('.wrap').style.paddingBottom='60px'; }
+    else { bar.className = 'statusbar pending'; bt.textContent = '결정 대기 — 필수 항목을 선택해 [프롬프트로 복사] 후 채팅에 붙여넣어 주세요.'; }
+  }
+
+  // md 렌더
+  (function () {
+    const raw = (document.getElementById('plan-md').textContent || '').trim();
+    if (!raw) return;
+    document.getElementById('body-title').style.display = '';
+    const body = document.getElementById('plan-body'); body.style.display = '';
+    const me = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    const mi = s => { let o = me(s); o = o.replace(/`([^`]+)`/g, '<code>$1</code>'); o = o.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>'); return o; };
+    const sr = l => l.trim().replace(/^\|/,'').replace(/\|$/,'').split('|').map(c => c.trim());
+    const lines = raw.replace(/\r\n/g,'\n').split('\n'); let html = '', i = 0;
+    const isSp = l => /^#{1,6}\s/.test(l)||/^```/.test(l)||/^\s*\|.*\|\s*$/.test(l)||/^\s*[-*]\s+/.test(l)||/^\s*\d+\.\s+/.test(l)||/^\s*---+\s*$/.test(l)||/^\s*>/.test(l)||/^\s*$/.test(l);
+    while (i < lines.length) {
+      const l = lines[i];
+      if (/^```/.test(l)) { i++; const b=[]; while(i<lines.length&&!/^```/.test(lines[i])){b.push(lines[i]);i++;} i++; html+='<pre class="md-code"><code>'+me(b.join('\n'))+'</code></pre>'; continue; }
+      if (/^\s*\|.*\|\s*$/.test(l)&&i+1<lines.length&&/^\s*\|[\s:|-]+\|\s*$/.test(lines[i+1])) { const h=sr(l); i+=2; const r=[]; while(i<lines.length&&/^\s*\|.*\|\s*$/.test(lines[i])){r.push(sr(lines[i]));i++;} html+='<table><thead><tr>'+h.map(c=>'<th>'+mi(c)+'</th>').join('')+'</tr></thead><tbody>'+r.map(row=>'<tr>'+row.map(c=>'<td>'+mi(c)+'</td>').join('')+'</tr>').join('')+'</tbody></table>'; continue; }
+      const hd = l.match(/^(#{1,6})\s+(.*)$/); if (hd) { html+='<h'+hd[1].length+'>'+mi(hd[2])+'</h'+hd[1].length+'>'; i++; continue; }
+      if (/^\s*---+\s*$/.test(l)) { html+='<hr>'; i++; continue; }
+      if (/^\s*([-*]|\d+\.)\s+/.test(l)) { const ord=/^\s*\d+\.\s+/.test(l), b=[]; while(i<lines.length&&/^\s*([-*]|\d+\.)\s+/.test(lines[i])){b.push(lines[i].replace(/^\s*([-*]|\d+\.)\s+/,''));i++;} html+=(ord?'<ol>':'<ul>')+b.map(x=>'<li>'+mi(x)+'</li>').join('')+(ord?'</ol>':'</ul>'); continue; }
+      if (/^\s*$/.test(l)) { i++; continue; }
+      const b=[l]; i++; while(i<lines.length&&!isSp(lines[i])){b.push(lines[i]);i++;} html+='<p>'+mi(b.join(' '))+'</p>';
+    }
+    body.innerHTML = html;
+  })();
+
+  // 현재 상태 분석 시각화 ("현재 상태 분석" 또는 "현재 구조" 헤딩 아래 삽입)
+  (function () {
+    if (!PLAN.issues) return;
+    const body = document.getElementById('plan-body');
+    if (!body) return;
+
+    let targetH2 = null;
+    body.querySelectorAll('h2').forEach(h => {
+      if (h.textContent.includes('현재 상태') || h.textContent.includes('현재 구조')) targetH2 = h;
+    });
+    if (!targetH2) return;
+
+    // 기존 내용(코드블록, 리스트 등) 다음 h2까지 모두 제거하고 교체
+    const toRemove = [];
+    let el2 = targetH2.nextElementSibling;
+    while (el2 && el2.tagName !== 'H2') { toRemove.push(el2); el2 = el2.nextElementSibling; }
+    toRemove.forEach(e => e.remove());
+
+    const critical = PLAN.issues.filter(i => i.severity === 'critical').length;
+    const warning = PLAN.issues.filter(i => i.severity === 'warning').length;
+    const info = PLAN.issues.filter(i => i.severity === 'info').length;
+
+    let html = '';
+
+    // 요약
+    html += '<div class="analysis-summary">';
+    if (critical) html += '<div class="analysis-count critical"><i class="mdi mdi-alert-circle" style="font-size:16px"></i> Critical ' + critical + '개</div>';
+    if (warning) html += '<div class="analysis-count warning"><i class="mdi mdi-alert" style="font-size:16px"></i> Warning ' + warning + '개</div>';
+    if (info) html += '<div class="analysis-count info"><i class="mdi mdi-information" style="font-size:16px"></i> Info ' + info + '개</div>';
+    html += '</div>';
+
+    // Issue 카드
+    PLAN.issues.forEach(issue => {
+      html += '<div class="issue-card ' + issue.severity + '">';
+      html += '<div class="issue-header">';
+      html += '<span class="issue-severity ' + issue.severity + '">' + issue.severity + '</span>';
+      html += '<i class="mdi ' + issue.icon + '" style="font-size:14px;color:var(--muted)"></i>';
+      html += '<span class="issue-category">' + esc(issue.category) + '</span>';
+      html += '</div>';
+      html += '<div class="issue-file">' + esc(issue.file);
+      if (issue.lines) html += '<span class="issue-lines">' + issue.lines + '줄</span>';
+      html += '</div>';
+      html += '<div class="issue-desc">' + esc(issue.desc) + '</div>';
+      html += '<div class="issue-suggestion"><i class="mdi mdi-arrow-right-circle" style="font-size:14px;flex-shrink:0;margin-top:1px"></i> ' + esc(issue.suggestion) + '</div>';
+      html += '</div>';
+    });
+
+    // Before 구조 + 클릭 시 FSD 레이어 배치에서 하이라이트
+    if (PLAN.beforeAfter) {
+      html += '<h3 style="margin-top:24px;font-size:15px;color:var(--text)">현재 폴더 구조 <span style="font-size:12px;color:var(--muted);font-weight:400">파일 클릭 → 이동 경로 하이라이트</span></h3>';
+
+      const buildBeforeTree = (items) => {
+        const root = {};
+        items.forEach(item => {
+          const parts = item.path.replace('src/', '').split('/').filter(Boolean);
+          let node = root;
+          parts.forEach((p, i) => {
+            if (!node[p]) node[p] = i === parts.length - 1 && item.type === 'file' ? { __item: item } : {};
+            node = node[p];
+          });
+        });
+        return root;
+      };
+
+      // 레이어 색상 매핑
+      const layerColors = {};
+      if (PLAN.layers) PLAN.layers.forEach(l => { layerColors[l.name] = l.color; });
+      const getMoveColor = (moveTo) => {
+        if (!moveTo) return '';
+        const layer = moveTo.replace('src/', '').split('/')[0];
+        return layerColors[layer] || '#58a6ff';
+      };
+      const getMoveLayer = (moveTo) => {
+        if (!moveTo) return '';
+        return moveTo.replace('src/', '').split('/')[0];
+      };
+
+      let baFid = 1000;
+      const renderBeforeTree = (node, depth) => {
+        const keys = Object.keys(node).filter(k => k !== '__item');
+        let h = '';
+        keys.forEach(key => {
+          const child = node[key];
+          const isFile = child.__item;
+          const indent = depth > 0 ? '<span style="width:'+depth*16+'px;display:inline-block"></span>' : '';
+          if (isFile) {
+            const item = child.__item;
+            const dot = item.issue ? '<span class="ba-dot red" style="margin-right:4px"></span>' : '';
+            const fileColor = item.issue ? '#f85149' : 'var(--muted)';
+            const moveTarget = item.moveTo || '';
+            const moveColor = getMoveColor(moveTarget);
+            const moveLayer = getMoveLayer(moveTarget);
+            const moveTag = moveTarget ? '<span class="before-move-tag" style="background:'+moveColor+'20;color:'+moveColor+'"><i class="mdi mdi-arrow-right" style="font-size:11px"></i> '+moveLayer+'/</span>' : '';
+            const dataMove = moveTarget ? ' data-move-to="'+esc(moveTarget)+'"' : '';
+            h += '<div class="tree-item"><div class="tree-item-inner before-file"'+dataMove+' onclick="highlightMove(this)"><div class="tree-indent">'+indent+'</div>'+dot+'<span class="tree-file-icon">'+getFileIcon(key)+'</span><span class="tree-filename" style="color:'+fileColor+'">'+esc(key)+'</span>'+moveTag+'</div></div>';
+          } else {
+            const id = 'ba-before-'+(baFid++);
+            const hasIssue = JSON.stringify(child).includes('"issue":true');
+            const folderColor = hasIssue ? '#f85149' : '#58a6ff';
+            const dot = hasIssue ? '<span class="ba-dot red" style="margin-right:4px"></span>' : '';
+            h += '<div class="tree-item"><div class="tree-item-inner tree-folder-toggle" onclick="toggleFolder(\''+id+'\')" style="cursor:pointer"><div class="tree-indent">'+indent+'</div>'+dot+'<span class="tree-file-icon"><i class="mdi mdi-folder-open" id="'+id+'-icon" style="font-size:16px;color:'+folderColor+'"></i></span><span class="tree-filename" style="color:'+folderColor+';opacity:.7">'+esc(key)+'/</span></div><div id="'+id+'" class="tree-folder-children">'+renderBeforeTree(child, depth+1)+'</div></div>';
+          }
+        });
+        return h;
+      };
+
+      // Before HTML을 전역에 저장 (FSD 트리와 합칠 때 사용)
+      window._beforeTreeHtml = '<div class="before-panel" style="border:1px solid var(--border);border-radius:10px;overflow:hidden"><div class="before-title"><i class="mdi mdi-folder-search" style="font-size:16px;color:var(--muted)"></i> 현재 구조 <span style="opacity:.5;font-weight:400;font-size:11px">(🔴 문제 · 클릭→이동 경로)</span></div><div class="tree-body open" style="padding:8px 12px;max-height:600px;overflow-y:auto">' + renderBeforeTree(buildBeforeTree(PLAN.beforeAfter.before), 0) + '</div></div>';
+    }
+
+    const vizEl = document.createElement('div');
+    vizEl.innerHTML = html;
+    targetH2.after(vizEl);
+  })();
+
+  // FSD 파일트리 (첫 번째 테이블 교체)
+  (function () {
+    if (!PLAN.layers) return;
+    const body = document.getElementById('plan-body');
+    if (!body) return;
+    const table = body.querySelector('table');
+    if (!table) return;
+
+    // getFileIcon은 전역 함수 사용
+
+    const buildTree = (files) => { const root = {}; files.forEach(f => { const parts = f.path.replace('src/','').split('/'); let node = root; parts.forEach((p, i) => { if (!node[p]) node[p] = i === parts.length - 1 ? { __file: f } : {}; node = node[p]; }); }); return root; };
+    let fid = 0;
+    const renderTree = (node, depth, color) => {
+      const keys = Object.keys(node).filter(k => k !== '__file');
+      let h = '';
+      keys.forEach(key => {
+        const child = node[key]; const isFile = child.__file;
+        const indent = depth > 0 ? '<span style="width:'+depth*16+'px;display:inline-block"></span>' : '';
+        if (isFile) {
+          const f = child.__file;
+          const fsdPath = f.path.replace('src/','');
+          h += '<div class="tree-item"><div class="tree-item-inner" data-fsd-path="'+esc(fsdPath)+'"><div class="tree-indent">'+indent+'</div><span class="tree-file-icon">'+getFileIcon(key)+'</span><span class="tree-filename" style="color:'+color+'">'+esc(key)+'</span><span class="tree-tag '+f.type+'">'+f.type+'</span><span class="tree-desc">'+esc(f.desc)+'</span></div></div>';
+        } else {
+          const id = 'folder-'+(fid++);
+          h += '<div class="tree-item"><div class="tree-item-inner tree-folder-toggle" onclick="toggleFolder(\''+id+'\')" style="cursor:pointer"><div class="tree-indent">'+indent+'</div><span class="tree-file-icon"><i class="mdi mdi-folder-open" id="'+id+'-icon" style="font-size:16px;color:#58a6ff"></i></span><span class="tree-filename" style="color:'+color+';opacity:.7">'+esc(key)+'/</span></div><div id="'+id+'" class="tree-folder-children">'+renderTree(child, depth+1, color)+'</div></div>';
+        }
+      });
+      return h;
+    };
+
+    let viz = '';
+    // 좌우 배치 아닐 때만 플로우 바 표시
+    if (!window._beforeTreeHtml) {
+      viz += '<div class="fsd-flow">';
+      PLAN.layers.sort((a,b) => a.order - b.order).forEach((l, i) => {
+        if (i > 0) viz += '<span class="fsd-flow-arrow">→</span>';
+        viz += '<div class="fsd-flow-step" style="background:'+l.bg+';color:'+l.color+';border-color:'+l.color+'40">'+l.label+'<span class="count">'+l.files.length+' files</span></div>';
+      });
+      viz += '</div>';
+    }
+    let finalHtml = '';
+    if (window._beforeTreeHtml) {
+      // 좌우 배치: FSD도 왼쪽과 동일한 단순 폴더 트리 스타일
+      let fsdTreeHtml = '';
+      PLAN.layers.sort((a,b) => a.order - b.order).forEach(l => {
+        // 레이어 이름을 제거한 하위 경로로 트리 생성
+        const subFiles = l.files.map(f => ({ ...f, path: f.path.replace('src/' + l.name + '/', '') }));
+        const buildSubTree = (files) => { const root = {}; files.forEach(f => { const parts = f.path.split('/'); let node = root; parts.forEach((p, i) => { if (!node[p]) node[p] = i === parts.length - 1 ? { __file: { ...f, path: l.files.find(o => o.path.endsWith(f.path)).path } } : {}; node = node[p]; }); }); return root; };
+        const subtree = buildSubTree(subFiles);
+        const layerFolderId = 'fsd-layer-' + l.name;
+        fsdTreeHtml += '<div class="tree-item"><div class="tree-item-inner tree-folder-toggle" onclick="toggleFolder(\'' + layerFolderId + '\')" style="cursor:pointer"><span class="tree-file-icon"><i class="mdi mdi-folder-open" id="' + layerFolderId + '-icon" style="font-size:16px;color:' + l.color + '"></i></span><span class="tree-filename" style="color:' + l.color + ';opacity:.8;font-weight:600">' + l.name + '/</span></div><div id="' + layerFolderId + '" class="tree-folder-children">' + renderTree(subtree, 1, l.color) + '</div></div>';
+      });
+
+      finalHtml = '<div class="migrate-columns">';
+      finalHtml += '<div>' + window._beforeTreeHtml + '</div>';
+      finalHtml += '<div class="before-panel" style="border:1px solid var(--border);border-radius:10px;overflow:hidden"><div class="before-title" style="background:var(--good-weak);color:var(--good)"><i class="mdi mdi-check-circle" style="font-size:16px"></i> FSD 구조</div><div class="tree-body open" style="padding:8px 12px;max-height:600px;overflow-y:auto">' + fsdTreeHtml + '</div></div>';
+      finalHtml += '</div>';
+    } else {
+      // 단독: 기존 레이어 트리 스타일
+      PLAN.layers.sort((a,b) => a.order - b.order).forEach(l => {
+        const tree = buildTree(l.files);
+        viz += '<div class="layer-tree"><div class="layer-tree-head" style="background:'+l.bg+'" onclick="this.querySelector(\'.arrow-icon\').classList.toggle(\'open\');this.nextElementSibling.classList.toggle(\'open\')"><span class="tree-file-icon"><i class="mdi mdi-folder-open" style="font-size:18px"></i></span><span class="layer-name" style="color:'+l.color+'">'+l.name+'/</span><span class="layer-desc" style="color:'+l.color+'">'+l.desc+'</span><span class="file-count" style="color:'+l.color+'">'+l.files.length+'개</span><span class="arrow-icon open" style="color:'+l.color+'">▶</span></div><div class="tree-body open">'+renderTree(tree, 0, l.color)+'</div></div>';
+      });
+      finalHtml = viz;
+    }
+    const ve = document.createElement('div'); ve.innerHTML = finalHtml; table.replaceWith(ve);
+  })();
+
+  // 타임라인 (작업 순서)
+  (function () {
+    if (!PLAN.steps) return;
+    const body = document.getElementById('plan-body');
+    if (!body) return;
+    let targetH2 = null;
+    body.querySelectorAll('h2').forEach(h => { if (h.textContent.includes('작업 순서')) targetH2 = h; });
+    if (!targetH2) return;
+    const toRemove = []; let el2 = targetH2.nextElementSibling;
+    while (el2 && el2.tagName !== 'H2') { toRemove.push(el2); el2 = el2.nextElementSibling; }
+    toRemove.forEach(e => e.remove());
+    let h = '<div class="timeline">';
+    PLAN.steps.forEach(s => {
+      h += '<div class="tl-step"><div class="tl-dot">'+s.step+'</div><div class="tl-card"><div class="tl-head"><span class="tl-layer">'+s.layer+'</span><span class="tl-title">'+s.title+'</span></div><ul class="tl-tasks">'+s.tasks.map(t => '<li>'+esc(t)+'</li>').join('')+'</ul><div class="tl-done"><i class="mdi mdi-check-circle-outline" style="font-size:14px"></i> '+esc(s.done)+'</div></div></div>';
+    });
+    h += '</div>';
+    const ve = document.createElement('div'); ve.innerHTML = h; targetH2.after(ve);
+  })();
+
+  function copy(text) { navigator.clipboard.writeText(text).then(showToast).catch(() => { const t=document.createElement('textarea'); t.value=text; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); showToast(); }); }
+  let tt; function showToast() { const t=document.getElementById('toast'); t.classList.add('show'); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove('show'),1600); }
+  document.getElementById('btn-copy').addEventListener('click', () => copy(buildPrompt()));
+  document.getElementById('btn-json').addEventListener('click', () => copy(buildJson()));
+  document.getElementById('notes').addEventListener('input', render);
+  render(); applyLifecycle();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,744 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>작업계획서 - 음식점 리뷰 작성 기능</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/devicon.min.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7/css/materialdesignicons.min.css" />
+<script id="plan-data">
+const PLAN = {
+  title: '음식점 리뷰 작성 기능',
+  type: 'feature',
+  scope: '전체 (entities → features → widgets → app)',
+  mdFile: 'plans/feature/20260726-review.md',
+  summary: '사용자가 음식점에 대한 리뷰(별점 + 텍스트)를 작성하고 제출할 수 있는 기능',
+
+  // FSD 레이어별 파일 배치
+  layers: [
+    {
+      name: 'entities',
+      label: 'Entities',
+      color: '#d4a72c',
+      bg: '#40351f',
+      desc: '데이터 타입 + API 정의',
+      order: 1,
+      files: [
+        { path: 'src/entities/restaurant/model/types.ts', type: 'CREATE', desc: 'Restaurant 타입 (id, name, address, rating, category)' },
+        { path: 'src/entities/restaurant/index.ts', type: 'CREATE', desc: 'public API' },
+        { path: 'src/entities/review/model/types.ts', type: 'CREATE', desc: 'Review 타입 (id, content, score, restaurantId, createdAt)' },
+        { path: 'src/entities/review/api/reviewApi.ts', type: 'CREATE', desc: 'getReviews, createReview API' },
+        { path: 'src/entities/review/model/useReviews.ts', type: 'CREATE', desc: 'React Query 캐싱 훅' },
+        { path: 'src/entities/review/index.ts', type: 'CREATE', desc: 'public API' },
+      ],
+    },
+    {
+      name: 'features',
+      label: 'Features',
+      color: '#56d364',
+      bg: '#1f402d',
+      desc: '사용자 동작 + 비즈니스 로직',
+      order: 2,
+      files: [
+        { path: 'src/features/write-review/model/types.ts', type: 'CREATE', desc: 'ReviewFormData 타입' },
+        { path: 'src/features/write-review/model/useWriteReview.ts', type: 'CREATE', desc: '리뷰 작성 로직 (유효성 검사 + mutation)' },
+        { path: 'src/features/write-review/ui/WriteReviewForm.tsx', type: 'CREATE', desc: '별점 + 텍스트 입력 폼' },
+        { path: 'src/features/write-review/ui/StarRating.tsx', type: 'CREATE', desc: '별점 선택 컴포넌트' },
+        { path: 'src/features/write-review/ui/WriteReviewForm.module.scss', type: 'CREATE', desc: '폼 스타일' },
+        { path: 'src/features/write-review/index.ts', type: 'CREATE', desc: 'public API' },
+      ],
+    },
+    {
+      name: 'widgets',
+      label: 'Widgets',
+      color: '#a371f7',
+      bg: '#2d1f40',
+      desc: '페이지 섹션 조합',
+      order: 3,
+      files: [
+        { path: 'src/widgets/review-feed/ui/ReviewFeed.tsx', type: 'CREATE', desc: '리뷰 목록 + 작성 폼 조합' },
+        { path: 'src/widgets/review-feed/ui/ReviewItem.tsx', type: 'CREATE', desc: '리뷰 한 건 표시 (별점 + 내용 + 날짜)' },
+        { path: 'src/widgets/review-feed/ui/ReviewFeed.module.scss', type: 'CREATE', desc: '피드 스타일' },
+        { path: 'src/widgets/review-feed/index.ts', type: 'CREATE', desc: 'public API' },
+      ],
+    },
+    {
+      name: 'app',
+      label: 'App',
+      color: '#58a6ff',
+      bg: '#1f2d40',
+      desc: 'URL → widget 연결',
+      order: 4,
+      files: [
+        { path: 'src/app/reviews/page.tsx', type: 'CREATE', desc: '/reviews 페이지 (ReviewFeed 배치만)' },
+      ],
+    },
+  ],
+
+  // 작업 순서 (타임라인)
+  steps: [
+    {
+      step: 1,
+      layer: 'entities',
+      title: '데이터 기반 구축',
+      color: '#d4a72c',
+      bg: '#40351f',
+      tasks: [
+        'Restaurant, Review 타입 정의',
+        'getReviews, createReview API 함수',
+        'useReviews React Query 캐싱 훅',
+        '각 슬라이스 index.ts public API',
+      ],
+      done: 'npm run build 통과, 타입 에러 없음',
+    },
+    {
+      step: 2,
+      layer: 'features',
+      title: '비즈니스 로직 + 폼 UI',
+      color: '#56d364',
+      bg: '#1f402d',
+      tasks: [
+        'ReviewFormData 타입 정의',
+        'useWriteReview 훅 — 유효성 검사(score 1~5, content 최소 N자) + mutation + 캐시 무효화',
+        'StarRating 별점 선택 컴포넌트 (score + onScoreChange)',
+        'WriteReviewForm 폼 조합 (StarRating + textarea + 제출 버튼)',
+        '폼 스타일 (.module.scss)',
+      ],
+      done: '폼 렌더링 + 유효성 검사 동작 확인',
+    },
+    {
+      step: 3,
+      layer: 'widgets',
+      title: '화면 섹션 조합',
+      color: '#a371f7',
+      bg: '#2d1f40',
+      tasks: [
+        'ReviewItem — 리뷰 한 건 표시 (별점 ★ + 내용 + 날짜)',
+        'ReviewFeed — useReviews 목록 + ReviewItem 반복 + WriteReviewForm 배치',
+        '피드 레이아웃 + 반응형 스타일',
+      ],
+      done: '리뷰 목록 + 작성 폼 노출 확인',
+    },
+    {
+      step: 4,
+      layer: 'app',
+      title: 'URL 연결',
+      color: '#58a6ff',
+      bg: '#1f2d40',
+      tasks: [
+        'app/reviews/page.tsx — ReviewFeed 위젯 import + 배치 (3줄 이내)',
+      ],
+      done: '/reviews URL 접속 시 리뷰 피드 표시',
+    },
+    {
+      step: 5,
+      layer: '검증',
+      title: '빌드 + FSD 검수',
+      color: '#3fb950',
+      bg: '#1a3028',
+      tasks: [
+        'npm run build — 빌드 확인',
+        'npm run format — 포맷 적용',
+        'npm run lint:fsd — FSD 구조 자동 검사',
+        '/review-fsd — 수동 검수',
+      ],
+      done: '모든 검사 통과',
+    },
+  ],
+
+  // 의존성
+  deps: [
+    { from: 'app/reviews', to: 'widgets/review-feed' },
+    { from: 'widgets/review-feed', to: 'features/write-review' },
+    { from: 'widgets/review-feed', to: 'entities/review' },
+    { from: 'features/write-review', to: 'entities/review' },
+  ],
+
+  decisions: [
+    {
+      id: 'state-management',
+      title: '상태 관리 방식',
+      desc: '리뷰 데이터를 어떻게 관리할지 결정합니다. entities/model/에 배치됩니다.',
+      type: 'single',
+      required: true,
+      options: [
+        { label: 'React Query', desc: 'entities/review/model/useReviews.ts에 서버 상태 캐싱. 자동 리패치, 캐시 무효화 지원.', recommended: true },
+        { label: 'Zustand', desc: 'features/write-review/model/reviewStore.ts에 클라이언트 상태. 직접 fetch + store 관리.' },
+        { label: 'useState만', desc: '컴포넌트 내부 상태. 간단하지만 페이지 이동 시 상태 유실.' },
+      ],
+    },
+    {
+      id: 'star-rating',
+      title: '별점 UI 방식',
+      desc: '리뷰 작성 시 별점 입력 UI를 어떤 형태로 할지 결정합니다.',
+      type: 'single',
+      required: true,
+      options: [
+        { label: '5점 별 클릭', desc: '★★★★☆ 형태. 별을 클릭하여 1~5점 선택. 가장 직관적.', recommended: true },
+        { label: '10점 슬라이더', desc: '0~10 범위 슬라이더. 세밀한 점수 가능하지만 모바일에서 불편.' },
+        { label: '이모지 선택', desc: '😡😐😊😍 중 선택. 재미있지만 정밀도 낮음.' },
+      ],
+    },
+    {
+      id: 'min-length',
+      title: '리뷰 최소 글자수',
+      desc: '리뷰 텍스트의 최소 글자수 제한. features/write-review의 유효성 검사에 반영.',
+      type: 'single',
+      required: false,
+      options: [
+        { label: '10자', desc: '짧은 리뷰도 허용. "맛있어요!" 정도 가능.', recommended: true },
+        { label: '20자', desc: '약간의 내용 요구. 스팸 방지 효과.' },
+        { label: '제한 없음', desc: '빈 텍스트도 허용 (별점만으로 리뷰 가능).' },
+      ],
+    },
+    {
+      id: 'extra-features',
+      title: '추가 포함 기능',
+      desc: '이번 작업에 함께 포함할 부가 기능을 선택합니다.',
+      type: 'multi',
+      required: false,
+      options: [
+        { label: '이미지 첨부', desc: '리뷰에 사진 업로드 기능. shared/lib/에 업로드 유틸 필요.' },
+        { label: '리뷰 수정/삭제', desc: 'features/edit-review 슬라이스 추가.' },
+        { label: '리뷰 좋아요', desc: 'features/like-review 슬라이스 추가.' },
+      ],
+    },
+  ],
+}
+</script>
+
+<script id="plan-md" type="text/markdown">
+# 음식점 리뷰 작성 기능
+
+## 1. 개요
+- 작업 유형: feature
+- 요청 사항: 사용자가 음식점에 대한 리뷰(별점 + 텍스트)를 작성하고 제출할 수 있는 기능
+- 영향 범위: entities, features, widgets, app
+
+## 2. 현재 상태 분석
+- 프로젝트: Next.js 16 + TypeScript + FSD 아키텍처
+- 현재 entities, features 폴더 비어있음 (첫 기능 개발)
+- widgets에 home-hero만 존재
+
+## 3. FSD 레이어 배치
+
+| 파일 경로 | 레이어 | 작업 | 설명 |
+|-----------|--------|------|------|
+| `entities/restaurant/model/types.ts` | entities | CREATE | Restaurant 타입 |
+| `entities/restaurant/index.ts` | entities | CREATE | public API |
+| `entities/review/model/types.ts` | entities | CREATE | Review 타입 |
+| `entities/review/api/reviewApi.ts` | entities | CREATE | CRUD API |
+| `entities/review/model/useReviews.ts` | entities | CREATE | React Query 훅 |
+| `entities/review/index.ts` | entities | CREATE | public API |
+| `features/write-review/model/types.ts` | features | CREATE | ReviewFormData 타입 |
+| `features/write-review/model/useWriteReview.ts` | features | CREATE | 작성 로직 훅 |
+| `features/write-review/ui/WriteReviewForm.tsx` | features | CREATE | 작성 폼 UI |
+| `features/write-review/ui/StarRating.tsx` | features | CREATE | 별점 컴포넌트 |
+| `features/write-review/ui/WriteReviewForm.module.scss` | features | CREATE | 폼 스타일 |
+| `features/write-review/index.ts` | features | CREATE | public API |
+| `widgets/review-feed/ui/ReviewFeed.tsx` | widgets | CREATE | 목록 + 폼 조합 |
+| `widgets/review-feed/ui/ReviewItem.tsx` | widgets | CREATE | 리뷰 한 건 |
+| `widgets/review-feed/ui/ReviewFeed.module.scss` | widgets | CREATE | 피드 스타일 |
+| `widgets/review-feed/index.ts` | widgets | CREATE | public API |
+| `app/reviews/page.tsx` | app | CREATE | /reviews 라우팅 |
+
+## 4. 작업 순서
+
+## 5. Import 의존성
+
+```
+app/reviews/page.tsx
+  → @/widgets/review-feed (ReviewFeed)
+
+widgets/review-feed/ui/ReviewFeed.tsx
+  → @/features/write-review (WriteReviewForm)
+  → @/entities/review (useReviews, type Review)
+
+features/write-review/model/useWriteReview.ts
+  → @/entities/review (createReview, type Review)
+
+features/write-review/ui/WriteReviewForm.tsx
+  → ./StarRating (같은 슬라이스 내부, 상대 경로)
+
+entities/review/api/reviewApi.ts
+  → @/entities/review/model/types (내부 import)
+```
+
+## 6. FSD 검증 체크리스트
+- ✅ 단방향 의존성: app → widgets → features → entities
+- ✅ 같은 레이어 교차 import 없음 (review ↛ restaurant)
+- ✅ app/reviews/page.tsx에 로직/스타일 없음 (3줄 이내)
+- ✅ entities에 UI 없음 (타입 + API + Query 훅만)
+- ✅ 6개 슬라이스 모두 index.ts public API 존재
+- ✅ 모든 함수 화살표 함수
+- ✅ handleSubmit(내부), onScoreChange(props) 네이밍 준수
+- ✅ isLoading, hasError 등 Boolean 네이밍 준수
+</script>
+
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #161b22;
+    --border: #2d333b;
+    --text: #e1e4e8;
+    --muted: #8b949e;
+    --primary: #58a6ff;
+    --primary-weak: #1c2d44;
+    --primary-border: #264a78;
+    --good: #3fb950;
+    --good-weak: #1a3028;
+    --good-border: #26633a;
+    --warn: #d29922;
+    --radius: 12px;
+    --shadow: 0 1px 3px rgba(0, 0, 0, .3), 0 1px 2px rgba(0, 0, 0, .2);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo',
+      'Malgun Gothic', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 32px 20px 200px; }
+  header.plan-head { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px 26px; box-shadow: var(--shadow); margin-bottom: 16px; }
+  .plan-head h1 { margin: 0 0 6px; font-size: 22px; letter-spacing: -.01em; }
+  .plan-summary { color: var(--muted); margin: 8px 0 16px; font-size: 15px; }
+  .badges { display: flex; gap: 8px; flex-wrap: wrap; }
+  .badge { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: var(--primary-weak); color: var(--primary); border: 1px solid var(--primary-border); }
+  .badge.type-feature { background:#1c2d44; color:#58a6ff; border-color:#264a78; }
+  .badge.type-bugfix { background:#3d1f1f; color:#f85149; border-color:#6e3630; }
+  .badge.type-refactor { background:#2d1f40; color:#a371f7; border-color:#4a3570; }
+  .badge.type-migrate { background:#3d351f; color:#d29922; border-color:#6e5a30; }
+  .badge.scope { background:#1c2128; color:var(--muted); border-color:var(--border); }
+  .md-link { display:inline-block; margin-top:14px; font-size:13px; color:var(--muted); text-decoration:none; }
+  .md-link:hover { color: var(--primary); text-decoration: underline; }
+  .md-link code { background:#1c2128; padding:2px 6px; border-radius:6px; font-size:12px; }
+  .statusbar { display:flex; align-items:center; gap:10px; border-radius: var(--radius); padding: 12px 18px; margin: 24px 0; font-size: 14px; font-weight: 600; border: 1px solid var(--border); }
+  .statusbar.pending { background:#2a2218; border-color:#6e5a30; color:#d29922; }
+  .statusbar.confirmed { background:var(--good-weak); border-color:var(--good-border); color:#3fb950; }
+  .statusbar .dot { width:9px; height:9px; border-radius:50%; flex:none; }
+  .statusbar.pending .dot { background:#d29922; }
+  .statusbar.confirmed .dot { background:var(--good); }
+  .section-title { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin: 0 0 12px 2px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 22px; margin-bottom: 16px; box-shadow: var(--shadow); }
+  .card.unresolved { border-color: #6e5a30; }
+  .card.confirmed { border-color: var(--good-border); background: #1a2820; }
+  .card-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+  .card-title { font-size: 16px; font-weight: 700; margin: 0; }
+  .card-desc { color: var(--muted); font-size: 14px; margin: 4px 0 16px; }
+  .pick-tag { font-size:11px; font-weight:700; color:var(--muted); white-space:nowrap; border:1px solid var(--border); border-radius:999px; padding:2px 9px; }
+  .pick-tag.done { color:var(--good); border-color:var(--good-border); background:var(--good-weak); }
+  .options { display: flex; flex-direction: column; gap: 8px; }
+  .option { display: flex; align-items: flex-start; gap: 12px; border: 1.5px solid var(--border); border-radius: 10px; padding: 12px 14px; cursor: pointer; transition: border-color .12s, background .12s; background: var(--surface); }
+  .option:hover { border-color: #484f58; background: #1c2128; }
+  .option.selected { border-color: var(--primary); background: var(--primary-weak); }
+  .option .marker { flex: none; width: 20px; height: 20px; margin-top: 1px; border: 2px solid #484f58; background:var(--surface); display:grid; place-items:center; }
+  .option[data-type="single"] .marker { border-radius: 50%; }
+  .option[data-type="multi"] .marker { border-radius: 6px; }
+  .option.selected .marker { border-color: var(--primary); background: var(--primary); }
+  .option.selected .marker::after { content: ''; width: 8px; height: 8px; background:#fff; border-radius:2px; }
+  .option[data-type="single"].selected .marker::after { border-radius: 50%; }
+  .option .opt-body { flex: 1; }
+  .opt-label { font-weight: 600; font-size: 14.5px; }
+  .opt-label .rec { font-size:11px; font-weight:700; color:var(--good); margin-left:6px; background:var(--good-weak); border:1px solid var(--good-border); padding:1px 7px; border-radius:999px; }
+  .opt-desc { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .card.confirmed .option { cursor: default; }
+  .card.confirmed .option:hover { border-color: var(--border); background: var(--surface); }
+  .card.confirmed .option.selected { border-color: var(--good-border); background: var(--good-weak); }
+  .card.confirmed .option.selected .marker { border-color: var(--good); background: var(--good); }
+  .card.confirmed .option:not(.selected) { opacity: .45; }
+  .notes-area { width:100%; background:#0d1117; color:var(--text); min-height:70px; border:1.5px solid var(--border); border-radius:10px; padding:12px 14px; font-size:14px; font-family:inherit; resize:vertical; }
+  .plan-body { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px 32px; box-shadow: var(--shadow); margin-top: 8px; }
+  .plan-body h1,.plan-body h2,.plan-body h3,.plan-body h4 { line-height: 1.3; letter-spacing: -.01em; margin: 1.4em 0 .5em; }
+  .plan-body > :first-child { margin-top: 0; }
+  .plan-body h1 { font-size: 22px; border-bottom: 2px solid var(--border); padding-bottom: .3em; }
+  .plan-body h2 { font-size: 19px; border-bottom: 1px solid var(--border); padding-bottom: .25em; }
+  .plan-body h3 { font-size: 16.5px; }
+  .plan-body p { margin: .6em 0; font-size: 14.5px; }
+  .plan-body ul,.plan-body ol { margin: .5em 0; padding-left: 1.4em; font-size: 14.5px; }
+  .plan-body li { margin: .25em 0; }
+  .plan-body strong { font-weight: 700; color: var(--text); }
+  .plan-body code { background: #1c2128; color: #f78166; padding: 1.5px 6px; border-radius: 6px; font-size: 12.8px; font-family: 'SF Mono', Menlo, Consolas, monospace; }
+  .plan-body pre.md-code { background: #0d1117; border: 1px solid var(--border); color: #e2e8f0; border-radius: 10px; padding: 14px 16px; overflow-x: auto; margin: .8em 0; }
+  .plan-body pre.md-code code { background: none; color: inherit; padding: 0; font-size: 12.8px; }
+  .plan-body table { border-collapse: collapse; width: 100%; margin: .9em 0; font-size: 13.5px; display: block; overflow-x: auto; }
+  .plan-body th,.plan-body td { border: 1px solid var(--border); padding: 7px 11px; text-align: left; vertical-align: top; }
+  .plan-body th { background: #1c2128; font-weight: 700; white-space: nowrap; color: var(--muted); }
+  .plan-body tbody tr:nth-child(even) { background: #0d1117; }
+  .plan-body hr { border: none; border-top: 1px solid var(--border); margin: 1.6em 0; }
+  /* FSD 레이어 시각화 */
+  .fsd-flow { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 16px 0 20px; flex-wrap: wrap; }
+  .fsd-flow-step { padding: 8px 16px; border-radius: 10px; font-size: 13px; font-weight: 700; font-family: monospace; border: 2px solid; text-align: center; min-width: 90px; }
+  .fsd-flow-step .count { font-size: 11px; font-weight: 400; opacity: .7; display: block; margin-top: 2px; }
+  .fsd-flow-arrow { color: var(--muted); font-size: 18px; }
+
+  /* 파일트리 */
+  .layer-tree { margin-bottom: 10px; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); }
+  .layer-tree-head { padding: 10px 16px; display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; border-radius: var(--radius); }
+  .layer-tree-head:hover { filter: brightness(1.08); }
+  .layer-tree-head .folder-icon { font-size: 15px; }
+  .layer-tree-head .layer-name { font-size: 13.5px; font-weight: 700; font-family: monospace; }
+  .layer-tree-head .layer-desc { font-size: 12px; opacity: .65; margin-left: 4px; }
+  .layer-tree-head .file-count { font-size: 11px; font-weight: 600; opacity: .5; margin-left: auto; }
+  .layer-tree-head .arrow-icon { transition: transform .15s; font-size: 10px; opacity: .5; }
+  .layer-tree-head .arrow-icon.open { transform: rotate(90deg); }
+  .tree-body { display: none; background: #1c2128; padding: 8px 12px; }
+  .tree-body.open { display: block; }
+  .tree-item { padding: 0; }
+  .tree-item-inner { display: flex; align-items: center; gap: 0; padding: 5px 12px 5px 4px; font-size: 13px; border-radius: 6px; }
+  .tree-indent { display: flex; align-items: center; flex-shrink: 0; }
+  .tree-pipe { width: 20px; text-align: center; color: #484f58; font-family: monospace; font-size: 13px; user-select: none; }
+  .tree-pipe.last { }
+  .tree-file-icon { font-size: 13px; margin-right: 6px; flex-shrink: 0; display: flex; align-items: center; }
+  .tree-file-icon svg { display: block; }
+  .tree-filename { font-family: 'SF Mono', Menlo, monospace; font-size: 12.5px; font-weight: 500; }
+  .tree-tag { font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 3px; margin-left: 8px; flex-shrink: 0; }
+  .tree-tag.CREATE { background: #1a3028; color: #3fb950; }
+  .tree-tag.MODIFY { background: #2a2218; color: #d29922; }
+  .tree-tag.DELETE { background: #3d1f1f; color: #f85149; }
+  .tree-desc { font-size: 12px; color: var(--muted); margin-left: auto; padding-left: 12px; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px; }
+  /* 타임라인 */
+  .timeline { position: relative; padding-left: 28px; margin: 16px 0; }
+  .timeline::before { content: ''; position: absolute; left: 11px; top: 0; bottom: 0; width: 2px; background: var(--border); border-radius: 1px; }
+  .tl-step { position: relative; margin-bottom: 20px; }
+  .tl-step:last-child { margin-bottom: 0; }
+  .tl-dot { position: absolute; left: -28px; top: 0; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: var(--text); background: #30363d; z-index: 1; }
+  .tl-card { border-radius: 10px; padding: 14px 18px; background: var(--surface); border: 1px solid var(--border); }
+  .tl-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .tl-layer { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; font-family: monospace; background: #1c2128; color: var(--muted); }
+  .tl-title { font-size: 14px; font-weight: 600; color: var(--text); }
+  .tl-tasks { list-style: none; padding: 0; margin: 0; }
+  .tl-tasks li { font-size: 13px; color: var(--muted); padding: 3px 0; display: flex; align-items: flex-start; gap: 6px; }
+  .tl-tasks li::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: #484f58; flex-shrink: 0; margin-top: 7px; }
+  .tl-done { margin-top: 10px; font-size: 12px; padding: 6px 10px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; background: var(--good-weak); color: var(--good); }
+
+  .tree-folder-toggle:hover { background: rgba(255,255,255,.03); border-radius: 4px; }
+  .tree-folder-children { }
+  .tree-folder-children.collapsed { display: none; }
+  @media(max-width:600px) { .tree-desc { display: none; } }
+
+  .actionbar { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(13,17,23,.92); backdrop-filter: blur(8px); border-top: 1px solid var(--border); box-shadow: 0 -2px 12px rgba(0,0,0,.3); padding: 14px 20px; }
+  .actionbar-inner { max-width: 880px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+  .status { font-size: 13px; color: var(--muted); flex: 1; }
+  .status b { color: var(--text); }
+  button { font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; border-radius: 9px; padding: 11px 18px; border: 1px solid var(--border); background: #21262d; color: var(--text); transition: filter .12s, background .12s; }
+  button:hover { background: #30363d; }
+  button.primary { background: #238636; color:#fff; border-color: #238636; }
+  button.primary:hover { filter: brightness(1.06); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  details.preview { margin: 8px 0 24px; }
+  details.preview summary { cursor:pointer; font-size:13px; color:var(--muted); padding:6px 0; }
+  pre.prompt-out { background:#0f172a; color:#e2e8f0; border-radius:10px; padding:16px 18px; font-size:13px; line-height:1.6; white-space:pre-wrap; word-break:break-word; font-family: 'SF Mono', Menlo, Consolas, monospace; margin: 4px 0 0; }
+  .toast { position: fixed; bottom: 84px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--good); color:#fff; padding: 10px 20px; border-radius: 999px; font-size: 14px; font-weight: 600; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; box-shadow: var(--shadow); z-index: 50; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="plan-head">
+    <h1 id="p-title"></h1>
+    <p class="plan-summary" id="p-summary"></p>
+    <div class="badges">
+      <span class="badge" id="p-type"></span>
+      <span class="badge scope" id="p-scope"></span>
+    </div>
+    <a class="md-link" id="p-mdlink" href="#"></a>
+  </header>
+  <p class="section-title" id="body-title" style="display:none">작업계획서 상세</p>
+  <article class="plan-body" id="plan-body" style="display:none"></article>
+  <div class="statusbar" id="statusbar"><span class="dot"></span><span id="statusbar-text"></span></div>
+  <div id="decisions-wrap">
+    <p class="section-title" id="decisions-title">결정 사항 — 선택 후 하단 [프롬프트로 복사]</p>
+    <div id="decisions"></div>
+    <div class="card" id="notes-card">
+      <h3 class="card-title">추가 메모 (선택)</h3>
+      <p class="card-desc">결정 외에 전달할 제약/우선순위/주의사항이 있으면 적어주세요.</p>
+      <textarea class="notes-area" id="notes" placeholder="예: 이미지 첨부는 다음 스프린트에"></textarea>
+    </div>
+    <details class="preview">
+      <summary>복사될 프롬프트 미리보기</summary>
+      <pre class="prompt-out" id="preview"></pre>
+    </details>
+  </div>
+</div>
+<div class="actionbar" id="actionbar">
+  <div class="actionbar-inner">
+    <div class="status" id="status"></div>
+    <button id="btn-json">JSON 복사</button>
+    <button class="primary" id="btn-copy">프롬프트로 복사</button>
+  </div>
+</div>
+<div class="toast" id="toast">복사되었습니다</div>
+<script>
+function toggleFolder(id, el) {
+  const children = document.getElementById(id);
+  const icon = document.getElementById(id + '-icon');
+  children.classList.toggle('collapsed');
+  const isOpen = !children.classList.contains('collapsed');
+  icon.className = isOpen ? 'mdi mdi-folder-open' : 'mdi mdi-folder';
+}
+(function () {
+  const state = {};
+  const el = (tag, cls, html) => { const n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n; };
+  const esc = (s) => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const decidedList = (d) => d.decided == null ? null : Array.isArray(d.decided) ? d.decided : [d.decided];
+  const isConfirmed = (d) => decidedList(d) !== null;
+  const allConfirmed = () => PLAN.decisions.length > 0 && PLAN.decisions.every(d => !d.required || isConfirmed(d));
+
+  document.getElementById('p-title').textContent = PLAN.title;
+  document.getElementById('p-summary').textContent = PLAN.summary || '';
+  const tb = document.getElementById('p-type'); tb.textContent = PLAN.type; tb.classList.add('type-' + PLAN.type);
+  document.getElementById('p-scope').textContent = '범위: ' + PLAN.scope;
+  const ml = document.getElementById('p-mdlink'); ml.innerHTML = '원본 → <code>' + esc(PLAN.mdFile) + '</code>'; ml.href = PLAN.mdFile.split('/').pop();
+
+  const container = document.getElementById('decisions');
+  PLAN.decisions.forEach(dec => {
+    const confirmed = isConfirmed(dec); const preset = decidedList(dec) || [];
+    state[dec.id] = { picks: new Set(preset), custom: '' };
+    const card = el('div', 'card' + (confirmed ? ' confirmed' : '')); card.dataset.id = dec.id;
+    card.appendChild(el('div', 'card-head', '<h3 class="card-title">' + esc(dec.title) + (dec.required ? ' *' : '') + '</h3><span class="pick-tag">' + (dec.type === 'multi' ? '복수 선택' : '택1') + '</span>'));
+    if (dec.desc) card.appendChild(el('p', 'card-desc', esc(dec.desc)));
+    const opts = el('div', 'options');
+    dec.options.forEach(opt => {
+      const row = el('div', 'option'); row.dataset.type = dec.type;
+      if (preset.includes(opt.label)) row.classList.add('selected');
+      row.innerHTML = '<div class="marker"></div><div class="opt-body"><div class="opt-label">' + esc(opt.label) + (opt.recommended ? '<span class="rec">추천</span>' : '') + '</div>' + (opt.desc ? '<div class="opt-desc">' + esc(opt.desc) + '</div>' : '') + '</div>';
+      if (!confirmed) row.addEventListener('click', () => toggle(dec, opt, row, opts));
+      opts.appendChild(row);
+    });
+    card.appendChild(opts); container.appendChild(card);
+  });
+
+  function toggle(dec, opt, row, opts) {
+    const p = state[dec.id].picks;
+    if (dec.type === 'single') { p.clear(); opts.querySelectorAll('.option').forEach(n => n.classList.remove('selected')); p.add(opt.label); row.classList.add('selected'); }
+    else { if (p.has(opt.label)) { p.delete(opt.label); row.classList.remove('selected'); } else { p.add(opt.label); row.classList.add('selected'); } }
+    render();
+  }
+
+  function valueFor(d) { return [...state[d.id].picks].join(', '); }
+  function unresolved() { return PLAN.decisions.filter(d => d.required && state[d.id].picks.size === 0); }
+  function buildPrompt() {
+    const l = ['[작업계획서 결정사항 확정] ' + PLAN.title, '', '아래 결정사항으로 ' + PLAN.mdFile + ' 계획서를 확정하고 진행해주세요.', ''];
+    PLAN.decisions.forEach((d, i) => l.push((i+1) + '. ' + d.title + ': ' + (valueFor(d) || '(미결정)')));
+    l.push('', '추가 메모: ' + (document.getElementById('notes').value.trim() || '(없음)'));
+    return l.join('\n');
+  }
+  function buildJson() {
+    const o = { title: PLAN.title, mdFile: PLAN.mdFile, decisions: {}, notes: document.getElementById('notes').value.trim() };
+    PLAN.decisions.forEach(d => { o.decisions[d.title] = valueFor(d); });
+    return JSON.stringify(o, null, 2);
+  }
+
+  function render() {
+    PLAN.decisions.forEach(d => {
+      const card = container.querySelector('[data-id="'+d.id+'"]'), tag = card.querySelector('.pick-tag');
+      const decided = state[d.id].picks.size > 0;
+      card.classList.toggle('unresolved', d.required && !decided && !isConfirmed(d));
+      if (decided) { tag.classList.add('done'); tag.textContent = (isConfirmed(d) ? '✅ 확정 · ' : '✓ ') + valueFor(d); }
+      else { tag.classList.remove('done'); tag.textContent = d.type === 'multi' ? '복수 선택' : '택1'; }
+    });
+    const left = unresolved(), st = document.getElementById('status');
+    if (left.length === 0) st.innerHTML = '<b>모든 필수 결정 완료.</b> 복사해서 채팅에 붙여넣으세요.';
+    else st.innerHTML = '필수 결정 <b>' + left.length + '개</b> 남음: ' + left.map(d => esc(d.title)).join(', ');
+    document.getElementById('btn-copy').disabled = left.length > 0;
+    document.getElementById('preview').textContent = buildPrompt();
+  }
+
+  function applyLifecycle() {
+    const confirmed = allConfirmed(), bar = document.getElementById('statusbar'), bt = document.getElementById('statusbar-text');
+    if (confirmed) { bar.className = 'statusbar confirmed'; bt.textContent = '✅ 확정 완료'; document.getElementById('notes-card').style.display='none'; document.querySelector('details.preview').style.display='none'; document.getElementById('actionbar').style.display='none'; document.querySelector('.wrap').style.paddingBottom='60px'; }
+    else { bar.className = 'statusbar pending'; bt.textContent = '결정 대기 — 필수 항목을 선택해 [프롬프트로 복사] 후 채팅에 붙여넣어 주세요.'; }
+  }
+
+  // md 렌더
+  (function renderBody() {
+    const raw = (document.getElementById('plan-md').textContent || '').trim();
+    if (!raw) return;
+    document.getElementById('body-title').style.display = '';
+    const body = document.getElementById('plan-body'); body.style.display = '';
+    const me = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    const mi = s => { let o = me(s); o = o.replace(/`([^`]+)`/g, '<code>$1</code>'); o = o.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>'); return o; };
+    const sr = l => l.trim().replace(/^\|/,'').replace(/\|$/,'').split('|').map(c => c.trim());
+    const lines = raw.replace(/\r\n/g,'\n').split('\n'); let html = '', i = 0;
+    const isSp = l => /^#{1,6}\s/.test(l)||/^```/.test(l)||/^\s*\|.*\|\s*$/.test(l)||/^\s*[-*]\s+/.test(l)||/^\s*\d+\.\s+/.test(l)||/^\s*---+\s*$/.test(l)||/^\s*>/.test(l)||/^\s*$/.test(l);
+    while (i < lines.length) {
+      const l = lines[i];
+      if (/^```/.test(l)) { i++; const b=[]; while(i<lines.length&&!/^```/.test(lines[i])){b.push(lines[i]);i++;} i++; html+='<pre class="md-code"><code>'+me(b.join('\n'))+'</code></pre>'; continue; }
+      if (/^\s*\|.*\|\s*$/.test(l)&&i+1<lines.length&&/^\s*\|[\s:|-]+\|\s*$/.test(lines[i+1])) { const h=sr(l); i+=2; const r=[]; while(i<lines.length&&/^\s*\|.*\|\s*$/.test(lines[i])){r.push(sr(lines[i]));i++;} html+='<table><thead><tr>'+h.map(c=>'<th>'+mi(c)+'</th>').join('')+'</tr></thead><tbody>'+r.map(row=>'<tr>'+row.map(c=>'<td>'+mi(c)+'</td>').join('')+'</tr>').join('')+'</tbody></table>'; continue; }
+      const hd = l.match(/^(#{1,6})\s+(.*)$/); if (hd) { html+='<h'+hd[1].length+'>'+mi(hd[2])+'</h'+hd[1].length+'>'; i++; continue; }
+      if (/^\s*---+\s*$/.test(l)) { html+='<hr>'; i++; continue; }
+      if (/^\s*([-*]|\d+\.)\s+/.test(l)) { const ord=/^\s*\d+\.\s+/.test(l), b=[]; while(i<lines.length&&/^\s*([-*]|\d+\.)\s+/.test(lines[i])){b.push(lines[i].replace(/^\s*([-*]|\d+\.)\s+/,''));i++;} html+=(ord?'<ol>':'<ul>')+b.map(x=>'<li>'+mi(x)+'</li>').join('')+(ord?'</ol>':'</ul>'); continue; }
+      if (/^\s*$/.test(l)) { i++; continue; }
+      const b=[l]; i++; while(i<lines.length&&!isSp(lines[i])){b.push(lines[i]);i++;} html+='<p>'+mi(b.join(' '))+'</p>';
+    }
+    body.innerHTML = html;
+  })();
+
+  // "3. FSD 레이어 배치" 테이블을 시각 컴포넌트로 교체
+  (function enhanceFSD() {
+    if (!PLAN.layers) return;
+    const body = document.getElementById('plan-body');
+    if (!body) return;
+
+    // plan-body 안의 첫 번째 table 찾기 (레이어 배치 테이블)
+    const table = body.querySelector('table');
+    if (!table) return;
+
+    // 파일 경로를 트리 구조로 변환
+    const buildTree = (files) => {
+      const root = {};
+      files.forEach(f => {
+        const parts = f.path.replace('src/', '').split('/');
+        let node = root;
+        parts.forEach((part, i) => {
+          if (!node[part]) node[part] = i === parts.length - 1 ? { __file: f } : {};
+          node = node[part];
+        });
+      });
+      return root;
+    };
+
+    const fileIconMap = {
+      '.tsx': 'react', '.ts': 'typescript', '.scss': 'sass', '.css': 'css3',
+      '.json': 'nodejs', '.md': 'markdown', '.html': 'html5',
+      '.js': 'javascript', '.jsx': 'react', '.vue': 'vuejs',
+      '.svelte': 'svelte', '.py': 'python',
+    };
+
+    const getFileIcon = (name) => {
+      const ext = '.' + name.split('.').pop();
+      const devicon = fileIconMap[ext];
+      return devicon
+        ? `<i class="devicon-${devicon}-plain colored" style="font-size:16px"></i>`
+        : '<i class="mdi mdi-file-outline" style="font-size:16px;color:#8b949e"></i>';
+    };
+
+    let folderId = 0;
+    const renderTree = (node, depth, parentColor) => {
+      const keys = Object.keys(node).filter(k => k !== '__file');
+      let html = '';
+      keys.forEach((key, idx) => {
+        const isLast = idx === keys.length - 1;
+        const child = node[key];
+        const isFile = child.__file;
+        const indent = depth > 0 ? `<span style="width:${depth * 16}px;display:inline-block"></span>` : '';
+
+        if (isFile) {
+          const f = child.__file;
+          html += `<div class="tree-item"><div class="tree-item-inner">
+            <div class="tree-indent">${indent}</div>
+            <span class="tree-file-icon">${getFileIcon(key)}</span>
+            <span class="tree-filename" style="color:${parentColor}">${esc(key)}</span>
+            <span class="tree-tag ${f.type}">${f.type}</span>
+            <span class="tree-desc">${esc(f.desc)}</span>
+          </div></div>`;
+        } else {
+          const id = 'folder-' + (folderId++);
+          const childHtml = renderTree(child, depth + 1, parentColor);
+          html += `<div class="tree-item">
+            <div class="tree-item-inner tree-folder-toggle" onclick="toggleFolder('${id}', this)" style="cursor:pointer">
+              <div class="tree-indent">${indent}</div>
+              <span class="tree-file-icon"><i class="mdi mdi-folder-open" id="${id}-icon" style="font-size:16px;color:#58a6ff"></i></span>
+              <span class="tree-filename" style="color:${parentColor};opacity:.7">${esc(key)}/</span>
+            </div>
+            <div id="${id}" class="tree-folder-children">${childHtml}</div>
+          </div>`;
+        }
+      });
+      return html;
+    };
+
+    // 시각화 생성
+    let vizHtml = '';
+
+    // 플로우 바
+    vizHtml += '<div class="fsd-flow">';
+    PLAN.layers.sort((a, b) => a.order - b.order).forEach((layer, i) => {
+      if (i > 0) vizHtml += '<span class="fsd-flow-arrow">→</span>';
+      vizHtml += `<div class="fsd-flow-step" style="background:${layer.bg};color:${layer.color};border-color:${layer.color}40">${layer.label}<span class="count">${layer.files.length} files</span></div>`;
+    });
+    vizHtml += '</div>';
+
+    // 레이어별 파일트리
+    PLAN.layers.forEach(layer => {
+      const tree = buildTree(layer.files);
+      const treeHtml = renderTree(tree, 0, layer.color);
+
+      vizHtml += `<div class="layer-tree">
+        <div class="layer-tree-head" style="background:${layer.bg}" onclick="this.querySelector('.arrow-icon').classList.toggle('open');this.nextElementSibling.classList.toggle('open')">
+          <span class="folder-icon"><i class="mdi mdi-folder-open" style="font-size:18px"></i></span>
+          <span class="layer-name" style="color:${layer.color}">${layer.name}/</span>
+          <span class="layer-desc" style="color:${layer.color}">${layer.desc}</span>
+          <span class="file-count" style="color:${layer.color}">${layer.files.length}개</span>
+          <span class="arrow-icon open" style="color:${layer.color}">▶</span>
+        </div>
+        <div class="tree-body open">${treeHtml}</div>
+      </div>`;
+    });
+
+    const vizEl = document.createElement('div');
+    vizEl.innerHTML = vizHtml;
+    table.replaceWith(vizEl);
+  })();
+
+  // "4. 작업 순서" 섹션을 타임라인으로 교체
+  (function enhanceSteps() {
+    if (!PLAN.steps) return;
+    const body = document.getElementById('plan-body');
+    if (!body) return;
+
+    let targetH2 = null;
+    body.querySelectorAll('h2').forEach(h => {
+      if (h.textContent.includes('작업 순서')) targetH2 = h;
+    });
+    if (!targetH2) return;
+
+    // 헤딩 ~ 다음 h2 사이의 모든 요소 제거
+    const toRemove = [];
+    let el = targetH2.nextElementSibling;
+    while (el && el.tagName !== 'H2') {
+      toRemove.push(el);
+      el = el.nextElementSibling;
+    }
+    toRemove.forEach(e => e.remove());
+
+    // 타임라인 생성
+    let html = '<div class="timeline">';
+    PLAN.steps.forEach(s => {
+      html += `<div class="tl-step">
+        <div class="tl-dot">${s.step}</div>
+        <div class="tl-card">
+          <div class="tl-head">
+            <span class="tl-layer">${s.layer}</span>
+            <span class="tl-title">${s.title}</span>
+          </div>
+          <ul class="tl-tasks">
+            ${s.tasks.map(t => `<li>${esc(t)}</li>`).join('')}
+          </ul>
+          <div class="tl-done">
+            <i class="mdi mdi-check-circle-outline" style="font-size:14px"></i> ${esc(s.done)}
+          </div>
+        </div>
+      </div>`;
+    });
+    html += '</div>';
+
+    const vizEl = document.createElement('div');
+    vizEl.innerHTML = html;
+    targetH2.after(vizEl);
+  })();
+
+  function copy(text) { navigator.clipboard.writeText(text).then(showToast).catch(() => { const t=document.createElement('textarea'); t.value=text; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); showToast(); }); }
+  let tt; function showToast() { const t=document.getElementById('toast'); t.classList.add('show'); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove('show'),1600); }
+  document.getElementById('btn-copy').addEventListener('click', () => copy(buildPrompt()));
+  document.getElementById('btn-json').addEventListener('click', () => copy(buildJson()));
+  document.getElementById('notes').addEventListener('input', render);
+  render(); applyLifecycle();
+})();
+</script>
+</body>
+</html>
