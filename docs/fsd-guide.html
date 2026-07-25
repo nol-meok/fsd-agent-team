@@ -124,17 +124,16 @@
   <h2>Multi-Agent Pipeline</h2>
   <p>작업 요청 시 에이전트 파이프라인을 통해 FSD 구조 품질을 보장합니다.</p>
 
-  <h3>기본 파이프라인 (필수)</h3>
   <div class="pipeline">
     <div class="pipe-step plan" onclick="showAgent('plan')"><div class="icon">📋</div><div class="name">Planner</div><div class="cmd">/plan</div></div>
     <div class="pa">→</div>
     <div class="pipe-step code" onclick="showAgent('code')"><div class="icon">💻</div><div class="name">Coder</div><div class="cmd">/code</div></div>
     <div class="pa">→</div>
     <div class="pipe-step review" onclick="showAgent('review')"><div class="icon">🔍</div><div class="name">Reviewer</div><div class="cmd">/review-fsd</div></div>
-  </div>
-  <h3>확장 에이전트 (필요 시)</h3>
-  <div class="pipeline">
+    <div class="pa">→</div>
     <div class="pipe-step test" onclick="showAgent('test')"><div class="icon">🧪</div><div class="name">Tester</div><div class="cmd">/test</div></div>
+  </div>
+  <div class="pipeline" style="margin-top:0">
     <div class="pipe-step refactor" onclick="showAgent('refactor')"><div class="icon">♻️</div><div class="name">Refactor</div><div class="cmd">/refactor</div></div>
     <div class="pipe-step migrate" onclick="showAgent('migrate')"><div class="icon">🚚</div><div class="name">Migrate</div><div class="cmd">/migrate-fsd</div></div>
   </div>
