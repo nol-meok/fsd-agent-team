@@ -12,7 +12,7 @@ argument-hint: "(인자 없음 또는 추가 지시)"
 
 ### 1단계: 현재 구조 깊이 분석
 
-대상 프로젝트(`/Users/minchangsung/nol-meok/nol-meok`)의 src/ 전체를 탐색하여 다음을 수행한다:
+대상 프로젝트(`__PROJECT_PATH__`)의 src/ 전체를 탐색하여 다음을 수행한다:
 
 #### 1-1. 파일 전수 조사
 - src/ 하위 모든 파일 목록 확인

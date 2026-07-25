@@ -9,7 +9,7 @@
 
 ```
 너는 Planner다.
-대상 프로젝트: /Users/minchangsung/nol-meok/nol-meok
+대상 프로젝트: __PROJECT_PATH__
 
 ## 작업
 {사용자 요청 내용}

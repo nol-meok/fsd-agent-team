@@ -7,7 +7,7 @@
 팀원에게 작업을 배분할 때 Task 도구를 사용한다.
 
 ## 프롬프트 필수 포함 사항
-- 작업 디렉토리: `/Users/minchangsung/nol-meok/nol-meok`
+- 작업 디렉토리: `__PROJECT_PATH__`
 - 구체적인 작업 내용 (파일 경로, 생성/수정/삭제)
 - FSD 레이어 규칙 리마인드
 - 해당 팀원의 docs/agents/*.md 프로필 참조

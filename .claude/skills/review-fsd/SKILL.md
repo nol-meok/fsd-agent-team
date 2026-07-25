@@ -10,7 +10,7 @@ argument-hint: "(인자 없음)"
 
 ### 1단계: Reviewer 디스패치
 - docs/agents/reviewer.md 프로필 참조
-- 대상 프로젝트(`/Users/minchangsung/nol-meok/nol-meok`)에서 검수 실행
+- 대상 프로젝트(`__PROJECT_PATH__`)에서 검수 실행
 - 자동 린트(`npm run lint:fsd`)도 실행
 
 ### 2단계: 검수 항목

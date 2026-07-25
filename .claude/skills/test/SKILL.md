@@ -12,7 +12,7 @@ argument-hint: "테스트 대상 (예: review 기능)"
 
 ### 1단계: Tester 디스패치
 - docs/agents/tester.md 프로필 참조
-- 대상 프로젝트(`/Users/minchangsung/nol-meok/nol-meok`)에서 작업
+- 대상 프로젝트(`__PROJECT_PATH__`)에서 작업
 
 ### 2단계: 레이어별 테스트 전략
 - shared/lib → 유닛 테스트 (순수 함수)

@@ -368,7 +368,7 @@ entities/restaurant/
       <tr><td>useAuth</td><td><span class="tag tag-g">features</span></td><td>인증 도메인 종속</td></tr>
       <tr><td>formatDate</td><td><span class="tag tag-b">shared</span></td><td>범용 유틸</td></tr>
       <tr><td>Restaurant 타입</td><td><span class="tag tag-y">entities</span></td><td>도메인 데이터 모델</td></tr>
-      <tr><td>RestaurantCard</td><td><span class="tag tag-y">entities</span></td><td>도메인 데이터 표시 UI</td></tr>
+      <tr><td>RestaurantCard</td><td><span class="tag tag-y">widgets</span></td><td>UI는 widgets에서 (entities 타입만 import)</td></tr>
       <tr><td>Header 컴포넌트</td><td><span class="tag tag-y">widgets</span></td><td>페이지 섹션 블록</td></tr>
     </table>
     <h4>import 가능</h4>
@@ -432,15 +432,14 @@ import { useAuth } from '@/features/auth'; // ← feature → feature 금지!</c
   <h3>index.ts (Public API)</h3>
   <p>외부에서 슬라이스에 접근할 때 반드시 index.ts를 통해서만 접근합니다.</p>
   <div class="good"><pre><code>// entities/restaurant/index.ts
-export { RestaurantCard } from './ui/RestaurantCard';
 export { getRestaurant, getRestaurantList } from './api/restaurantApi';
 export type { Restaurant } from './model/types';
 
 // 사용 시
-import { RestaurantCard, type Restaurant } from '@/entities/restaurant';</code></pre></div>
+import { type Restaurant, getRestaurant } from '@/entities/restaurant';</code></pre></div>
   <div class="bad"><pre><code>// 내부 파일 직접 import 금지
-import { RestaurantCard } from '@/entities/restaurant/ui/RestaurantCard';
-import type { Restaurant } from '@/entities/restaurant/model/types';</code></pre></div>
+import type { Restaurant } from '@/entities/restaurant/model/types';
+import { getRestaurant } from '@/entities/restaurant/api/restaurantApi';</code></pre></div>
 
   <h3>레이어별 필요 디렉토리</h3>
   <table>
@@ -711,7 +710,7 @@ widgets/restaurant-list/
 └── ui/RestaurantCard.tsx  # entities의 타입을 import해서 사용</code></pre></div>
 
   <h3>4. shared에 도메인 코드</h3>
-  <div class="bad"><pre><code>shared/ui/RestaurantCard.tsx   ← 도메인 종속! entities로
+  <div class="bad"><pre><code>shared/ui/RestaurantCard.tsx   ← 도메인 종속! widgets로
 shared/lib/useAuth.ts          ← 인증 도메인! features로</code></pre></div>
 
   <h3>5. 슬라이스 내부 직접 import</h3>
@@ -743,8 +742,8 @@ const handleClick = () =&gt; { ... };</code></pre></div>
       <div class="flow-a">→ No → Q2로</div>
     </div>
     <div class="flow-step">
-      <div class="flow-q">Q2. DB에 저장되는 데이터 구조 / 단순 표시 UI인가?</div>
-      <div class="flow-a">→ Yes → <span>entities</span> (User 타입, RestaurantCard)</div>
+      <div class="flow-q">Q2. DB에 저장되는 데이터 구조인가? (타입, API)</div>
+      <div class="flow-a">→ Yes → <span>entities</span> (User 타입, Restaurant 타입, reviewApi)</div>
       <div class="flow-a">→ No → Q3로</div>
     </div>
     <div class="flow-step">
@@ -865,7 +864,7 @@ features/write-review/model/__tests__/useWriteReview.test.ts</code></pre>
 
   <h3>다른 프로젝트에 적용하기</h3>
   <pre><code># 1. 에이전트 명령어 복사
-cp -r .claude/commands/ [프로젝트]/.claude/commands/
+cp -r .claude/skills/ [프로젝트]/.claude/skills/
 
 # 2. 린트 스크립트 복사
 cp scripts/lint-fsd.ts [프로젝트]/scripts/

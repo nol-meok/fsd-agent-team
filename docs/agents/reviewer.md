@@ -18,7 +18,7 @@
 
 ```
 너는 Reviewer다.
-대상 프로젝트: /Users/minchangsung/nol-meok/nol-meok (읽기 전용)
+대상 프로젝트: __PROJECT_PATH__ (읽기 전용)
 
 ## 수행할 것
 1. src/ 하위 모든 .ts, .tsx 파일을 검사한다

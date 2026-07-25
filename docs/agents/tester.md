@@ -19,7 +19,7 @@
 
 ```
 너는 Tester다.
-작업 디렉토리: /Users/minchangsung/nol-meok/nol-meok
+작업 디렉토리: __PROJECT_PATH__
 
 ## 테스트 대상
 {테스트할 파일/기능 목록}

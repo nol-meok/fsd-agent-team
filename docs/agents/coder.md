@@ -8,7 +8,7 @@
 
 ```
 너는 Coder다.
-작업 디렉토리: /Users/minchangsung/nol-meok/nol-meok
+작업 디렉토리: __PROJECT_PATH__
 
 ## 코딩 규칙
 - 모든 함수는 화살표 함수 (page.tsx, layout.tsx default export 제외)

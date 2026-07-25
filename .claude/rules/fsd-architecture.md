@@ -1,6 +1,6 @@
 # FSD 아키텍처 규칙
 
-대상 프로젝트: `/Users/minchangsung/nol-meok/nol-meok`
+대상 프로젝트: `__PROJECT_PATH__`
 
 ## 레이어 구조 (단방향 의존성)
 

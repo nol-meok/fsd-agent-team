@@ -14,12 +14,12 @@
 
 ## 대상 프로젝트
 
-- **프로젝트 경로**: `/Users/minchangsung/nol-meok/nol-meok`
+- **프로젝트 경로**: `__PROJECT_PATH__`
 - **프로젝트 설명**: init.sh 실행 시 설정됨
 
 ---
 
-## 팀 구성 (4명)
+## 팀 구성 (6명)
 
 | 팀원 | 역할 | 상세 |
 |------|------|------|
@@ -27,6 +27,8 @@
 | **Coder** | FSD 규칙에 따라 코드 작성 | docs/agents/coder.md |
 | **Reviewer** | FSD 구조/컨벤션/의존성 검수 | docs/agents/reviewer.md |
 | **Tester** | 레이어별 전략에 맞는 테스트 작성 | docs/agents/tester.md |
+| **Refactor** | 코드 중복/구조 개선 분석 및 제안 | docs/agents/refactor.md |
+| **Migrator** | 기존 프로젝트 FSD 변환 계획 | docs/agents/migrator.md |
 
 ---
 
@@ -34,7 +36,7 @@
 
 ### 1단계: 분석 & 계획서 작성
 - 사용자의 요청을 파악
-- 대상 프로젝트에서 관련 기존 코드 탐색 (Explore 에이전트 활용)
+- 대상 프로젝트에서 관련 기존 코드 탐색 (Glob, Grep, Read 활용)
 - **작업계획서를 `.md` + `.html` 한 쌍으로 작성**:
   - `plans/유형/YYYYMMDD-제목.md`: FSD 레이어 배치, 파일 목록, 작업 순서
   - `plans/유형/YYYYMMDD-제목.html`: `docs/plan-template.html` 기반으로 결정 콘솔 + md 본문 임베드
@@ -48,7 +50,7 @@
 ### 3단계: 코딩 디스패치
 - Coder에게 승인된 작업 항목을 디스패치
 - FSD 작업 순서: shared → entities → features → widgets → app
-- 대상 프로젝트 경로(`/Users/minchangsung/nol-meok/nol-meok`)에서 작업
+- 대상 프로젝트 경로(`__PROJECT_PATH__`)에서 작업
 
 ### 4단계: 검증
 - Reviewer: FSD 구조/의존성/컨벤션 검수

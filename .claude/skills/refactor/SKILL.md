@@ -11,7 +11,7 @@ argument-hint: "리팩토링 대상 (예: widgets/home-hero)"
 ## 절차
 
 ### 1단계: 분석
-- 대상 프로젝트(`/Users/minchangsung/nol-meok/nol-meok`)에서 코드 분석
+- 대상 프로젝트(`__PROJECT_PATH__`)에서 코드 분석
 - 중복 코드, 150줄 초과 컴포넌트, 잘못된 레이어 배치, 불필요한 의존성
 
 ### 2단계: HTML 리포트 생성
