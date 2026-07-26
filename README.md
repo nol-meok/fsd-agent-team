@@ -55,9 +55,9 @@ claude
 - **Python 3** — 계획서 HTML 빌더(`scripts/`)와 디자인 시스템 도구(`tools/`)에 필요
 - Node.js — FSD 린터(`scripts/lint-fsd.ts`)를 `npx tsx` 로 실행할 때
 
-> ⚠️ `tools/ui-ux-pro-max` 는 벤더링된 서드파티 코드이고 **출처·라이선스가 확인되지 않았습니다.**
-> 공개 배포 전에 [tools/ui-ux-pro-max/README.md](tools/ui-ux-pro-max/README.md) 의
-> 출처/라이선스 항목을 채워주세요.
+> `tools/ui-ux-pro-max` 는 [ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill)
+> (MIT, © 2024 Next Level Builder) 을 벤더링한 것입니다.
+> 자세한 내용은 [tools/ui-ux-pro-max/README.md](tools/ui-ux-pro-max/README.md) 참고.
 
 ---
 
