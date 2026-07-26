@@ -21,6 +21,20 @@ cd fsd-agent-team
 # 대상 프로젝트 경로 입력: /path/to/your/project
 ```
 
+| 옵션 | 용도 |
+| ---------------- | ----------------------------------- |
+| `./init.sh <경로>` | 대화형 입력 없이 바로 설정 |
+| `./init.sh --show` | 현재 설정된 경로 확인 |
+| `./init.sh --dry-run` | 변경될 파일만 미리 보기 |
+| `./init.sh --reset` | 경로를 `__PROJECT_PATH__` 로 되돌리기 (**커밋 전 필수**) |
+
+재실행 가능합니다. 다시 실행하면 이전 경로를 새 경로로 바꿉니다.
+
+> ⚠️ `init.sh` 는 추적 중인 지시문 파일 15개에 경로를 직접 써넣습니다.
+> **커밋 전에 `./init.sh --reset` 을 실행하세요.** 개인 경로가 박힌 상태로 커밋하면
+> 플레이스홀더가 사라져 다른 사람이 clone 했을 때 세팅이 불가능합니다.
+> 커밋 후 `./init.sh <경로>` 로 다시 적용하면 됩니다.
+
 ### 3. 실행
 
 ```bash
@@ -35,18 +49,23 @@ claude
 → 자동 코딩 → FSD 검수
 ```
 
+### 요구사항
+
+- Claude Code
+- **Python 3** — 계획서 HTML 빌더(`scripts/`)와 디자인 시스템 도구(`tools/`)에 필요
+
 ---
 
 ## 팀 구성
 
 | 팀원 | 역할 | slash command |
-|------|------|-------------|
+| ------------ | ------------------------------- | -------------- |
 | **Planner** | 요구사항 분석, HTML 계획서 작성 | `/plan` |
 | **Coder** | FSD 규칙에 따라 코드 작성 | `/code` |
 | **Reviewer** | FSD 구조/컨벤션 검수 | `/review-fsd` |
 | **Tester** | 레이어별 테스트 작성 | `/test` |
 | **Refactor** | 코드 중복/구조 개선 | `/refactor` |
-| **Migrate** | 기존 프로젝트 FSD 변환 | `/migrate-fsd` |
+| **Migrator** | 기존 프로젝트 FSD 변환 | `/migrate-fsd` |
 
 ---
 
@@ -75,14 +94,31 @@ Reviewer + Tester (검증)
 - **다크모드** UI
 - **파일트리** (devicon 아이콘, 폴더 접기)
 - **타임라인** (작업 순서 시각화)
-- **결정 콘솔** (옵션 선택 → 프롬프트 복사)
-- **Before → After** 좌우 비교 (migrate 시, 클릭 하이라이트)
-- **문제 분석** (critical/warning/info 카드)
+- **결정 콘솔** (옵션 선택 → 프롬프트 복사 → 확정 시 잠금)
+- **디자인 시스템** (색상 스와치, 폰트 미리보기, UX/모션/스택 규칙)
+- **문제 분석** (critical/warning/info 카드, migrate 시)
+- **Before → After** 좌우 비교 (migrate 시)
+
+### 생성 방법
+
+계획서 HTML은 `docs/plan-template.html`(단일 소스)에 PLAN 데이터를 주입해 만듭니다.
+템플릿을 복사해 직접 치환하지 않고, **반드시 빌더를 씁니다.**
+
+```bash
+# 생성
+python3 scripts/build-plan-html.py plans/feature/20260727-제목.md --data plan.json
+
+# 기존 산출물 점검
+python3 scripts/build-plan-html.py plans/feature/20260727-제목.html --verify-only
+```
+
+빌더는 쓰기 전에 검증하고, 실패하면 파일을 남기지 않습니다.
+PLAN 스키마와 md 섹션 규약은 [docs/plan-template.md](docs/plan-template.md) 참고.
 
 ### 예시
 
 | 유형 | 파일 |
-|------|------|
+| ------------ | ---------------------------------------------------------------------------------- |
 | 신규 기능 | [plans/feature/20260726-review.html](plans/feature/20260726-review.html) |
 | 마이그레이션 | [plans/migrate/20260726-legacy-shop.html](plans/migrate/20260726-legacy-shop.html) |
 
@@ -91,6 +127,7 @@ Reviewer + Tester (검증)
 ## FSD 아키텍처 가이드
 
 [docs/fsd-guide.html](docs/fsd-guide.html) — 인터랙티브 FSD 가이드
+([온라인](https://nol-meok.github.io/fsd-agent-team/fsd-guide.html))
 
 - Agent Pipeline, FSD Layers, Dependencies, Slice 구조
 - 코드 컨벤션, Anti-Patterns, 배치 가이드
@@ -103,7 +140,7 @@ Reviewer + Tester (검증)
 ```
 fsd-agent-team/
 ├── CLAUDE.md                    # Team Lead 핵심 지침
-├── init.sh                      # 초기 세팅 (프로젝트 경로 설정)
+├── init.sh                      # 초기 세팅 (재실행 가능)
 ├── .claude/
 │   ├── rules/                   # 자동 로드 규칙
 │   │   ├── fsd-architecture.md  #   FSD 레이어/의존성 규칙
@@ -116,18 +153,28 @@ fsd-agent-team/
 │       ├── test/SKILL.md
 │       ├── refactor/SKILL.md
 │       └── migrate-fsd/SKILL.md
+├── scripts/
+│   ├── build-plan-html.py       # 계획서 HTML 빌더 (+ 검증)
+│   └── lint-fsd.ts              # FSD 구조 자동 검사 (대상 프로젝트에 복사해 사용)
+├── tools/
+│   └── ui-ux-pro-max/           # 디자인 시스템 추천 엔진 (/plan 이 사용)
 ├── docs/
 │   ├── fsd-guide.html           # FSD 아키텍처 가이드 (인터랙티브)
-│   ├── plan-template.md         # 계획서 md 템플릿
-│   ├── plan-template.html       # 계획서 html 템플릿 (결정 콘솔)
+│   ├── plan-template.html       # 계획서 HTML 단일 소스 (빌더 전용)
+│   ├── plan-template.md         # md 템플릿 + PLAN 스키마
 │   └── agents/                  # 팀원 프로필 + 프롬프트 템플릿
 │       ├── planner.md
 │       ├── coder.md
 │       ├── reviewer.md
-│       └── tester.md
-└── plans/                       # 생성된 계획서 보관
-    ├── feature/                 #   신규 기능 계획서
-    └── migrate/                 #   마이그레이션 계획서
+│       ├── tester.md
+│       ├── refactor.md
+│       └── migrator.md
+├── plans/                       # 계획서 (승인 대상)
+│   ├── feature/                 #   신규 기능
+│   └── migrate/                 #   마이그레이션
+└── reports/                     # 결과 리포트
+    ├── review/                  #   FSD 검수
+    └── refactor/                #   리팩토링 분석
 ```
 
 ---
@@ -136,12 +183,12 @@ fsd-agent-team/
 
 ```bash
 cd fsd-agent-team
-./init.sh
-# 새 프로젝트 경로 입력
+./init.sh /path/to/other/project
 claude
 ```
 
 기존 프로젝트(FSD가 아닌)에 적용하려면:
+
 ```
 /migrate-fsd
 ```

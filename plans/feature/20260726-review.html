@@ -154,7 +154,81 @@ const PLAN = {
     { from: 'features/write-review', to: 'entities/review' },
   ],
 
+  // 디자인 시스템 (ui-ux-pro-max 생성)
+  design: {
+    source: 'generated',
+    generator: 'ui-ux-pro-max',
+    category: 'Food Delivery / On-Demand',
+    colors: [
+      { name: 'primary', value: '#EA580C', desc: '주요 (식욕 오렌지)' },
+      { name: 'on-primary', value: '#FFFFFF', desc: 'Primary 위 텍스트' },
+      { name: 'secondary', value: '#F97316', desc: '보조 오렌지' },
+      { name: 'accent', value: '#2563EB', desc: '액센트 (신뢰 블루)' },
+      { name: 'background', value: '#FFF7ED', desc: '배경 (따뜻한 크림)' },
+      { name: 'foreground', value: '#0F172A', desc: '텍스트' },
+      { name: 'muted', value: '#FDF4F0', desc: '비활성 배경' },
+      { name: 'border', value: '#FCEAE1', desc: '테두리' },
+      { name: 'destructive', value: '#DC2626', desc: '에러/삭제' },
+      { name: 'ring', value: '#EA580C', desc: '포커스 링' },
+    ],
+    typography: {
+      heading: { family: 'Playfair Display SC', weight: '700', googleUrl: 'https://fonts.googleapis.com/css2?family=Playfair+Display+SC:wght@400;700&display=swap' },
+      body: { family: 'Karla', weight: '400', googleUrl: 'https://fonts.googleapis.com/css2?family=Karla:wght@300;400;500;600;700&display=swap' },
+    },
+    style: {
+      name: 'Vibrant & Block-based',
+      keywords: 'Bold, energetic, playful, block layout, high color contrast',
+      effects: 'Large sections (48px+ gaps), bold hover (color shift), scroll-snap, large type (32px+)',
+      antiPatterns: 'Muted colors + Low energy',
+    },
+    pattern: {
+      name: 'App Store Style Landing',
+      sections: 'Hero > Screenshots > Features > Reviews > Download CTAs',
+    },
+    googleFontsUrl: 'https://fonts.googleapis.com/css2?family=Karla:wght@300;400;500;600;700&family=Playfair+Display+SC:wght@400;700&display=swap',
+    notes: 'ui-ux-pro-max가 "food delivery app" 쿼리로 생성. Appetizing orange + trust blue 조합.',
+  },
+
   decisions: [
+    {
+      id: 'color-palette',
+      title: '색상 팔레트',
+      desc: 'ui-ux-pro-max가 음식/레스토랑 도메인에서 추천한 팔레트입니다. globals.scss에 CSS 변수로 추가됩니다.',
+      type: 'single',
+      required: true,
+      options: [
+        { label: 'Food Delivery Orange', desc: '식욕 자극 오렌지 + 신뢰 블루. 배달앱/리뷰 서비스에 최적.', recommended: true,
+          colors: ['#FFF7ED', '#EA580C', '#F97316', '#2563EB', '#0F172A', '#FCEAE1'] },
+        { label: 'Restaurant Red', desc: '식욕 자극 레드 + 웜 골드. 전통 레스토랑/맛집 느낌.',
+          colors: ['#FEF2F2', '#DC2626', '#F87171', '#A16207', '#450A0A', '#FCA5A5'] },
+        { label: 'Grocery Green', desc: '신선 그린 + 푸드 앰버. 건강식/샐러드 서비스에 적합.',
+          colors: ['#ECFDF5', '#059669', '#10B981', '#D97706', '#0F172A', '#A7F3D0'] },
+      ],
+    },
+    {
+      id: 'ui-style',
+      title: 'UI 스타일',
+      desc: 'ui-ux-pro-max 추천: "Vibrant & Block-based" — 대담하고 에너지 있는 블록 레이아웃.',
+      type: 'single',
+      required: true,
+      options: [
+        { label: 'Vibrant & Block-based', desc: 'Bold, energetic, high contrast. 큰 섹션 + 컬러 시프트 호버. 음식앱에 추천.', recommended: true },
+        { label: 'Minimalism', desc: '깔끔한 여백 + 산세리프. 콘텐츠 집중형. 어디에나 무난.' },
+        { label: 'Glassmorphism', desc: '반투명 유리 효과 + blur. 모던하고 세련됨. 다크모드와 궁합.' },
+      ],
+    },
+    {
+      id: 'typography',
+      title: '타이포그래피',
+      desc: 'ui-ux-pro-max가 음식/레스토랑 도메인에서 추천한 폰트 페어링입니다.',
+      type: 'single',
+      required: true,
+      options: [
+        { label: 'Playfair Display SC + Karla', desc: '우아한 레스토랑 메뉴 느낌. 음식/카페/호스피탈리티에 최적.', recommended: true },
+        { label: 'Playfair Display + Inter', desc: '클래식 엘레강스. 럭셔리/프리미엄/에디토리얼 느낌.' },
+        { label: 'Noto Serif JP + Noto Sans JP', desc: '일본식 모던. 일식 레스토랑/아시안 퓨전에 적합.' },
+      ],
+    },
     {
       id: 'state-management',
       title: '상태 관리 방식',
@@ -219,6 +293,14 @@ const PLAN = {
 - 프로젝트: Next.js 16 + TypeScript + FSD 아키텍처
 - 현재 entities, features 폴더 비어있음 (첫 기능 개발)
 - widgets에 home-hero만 존재
+
+## 2.5 디자인 시스템
+
+- 현황: 기존 디자인 시스템 미구축 (globals.scss에 CSS 변수 2개만 존재)
+- 생성: **ui-ux-pro-max** → "food delivery app" 쿼리 → "Food Delivery / On-Demand" 카테고리 매칭
+- 추천: 오렌지 팔레트 + Playfair Display SC / Karla + Vibrant & Block-based 스타일
+- 결정 필요: 색상 팔레트, UI 스타일, 타이포그래피 (아래 결정 콘솔에서 선택)
+- 결정된 디자인은 `shared/config/globals.scss`에 CSS 변수로 추가
 
 ## 3. FSD 레이어 배치
 
@@ -434,6 +516,37 @@ entities/review/api/reviewApi.ts
   pre.prompt-out { background:#0f172a; color:#e2e8f0; border-radius:10px; padding:16px 18px; font-size:13px; line-height:1.6; white-space:pre-wrap; word-break:break-word; font-family: 'SF Mono', Menlo, Consolas, monospace; margin: 4px 0 0; }
   .toast { position: fixed; bottom: 84px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--good); color:#fff; padding: 10px 20px; border-radius: 999px; font-size: 14px; font-weight: 600; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; box-shadow: var(--shadow); z-index: 50; }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* 디자인 시스템 프리뷰 */
+  .design-section { margin: 4px 0 20px; }
+  .design-source { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 999px; margin-bottom: 14px; }
+  .design-source.existing { background: var(--good-weak); color: var(--good); border: 1px solid var(--good-border); }
+  .design-source.new { background: var(--primary-weak); color: var(--primary); border: 1px solid var(--primary-border); }
+  .design-source.generated { background: #2d1f40; color: #a371f7; border: 1px solid #4a3570; }
+  .design-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin: 18px 0 8px 2px; }
+  .design-label:first-of-type { margin-top: 4px; }
+  .color-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+  .color-swatch { width: 100px; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); background: var(--surface); transition: transform .1s; }
+  .color-swatch:hover { transform: translateY(-2px); }
+  .swatch-color { height: 52px; position: relative; }
+  .swatch-info { padding: 7px 9px; }
+  .swatch-name { font-size: 11px; font-weight: 600; color: var(--text); display: block; margin-bottom: 1px; }
+  .swatch-value { font-size: 10px; color: var(--muted); font-family: 'SF Mono', Menlo, monospace; }
+  .swatch-desc { font-size: 10px; color: var(--muted); display: block; margin-top: 2px; }
+  .typo-list { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .typo-row { display: flex; align-items: center; gap: 16px; padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--surface); }
+  .typo-row:last-child { border-bottom: none; }
+  .typo-role { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; min-width: 64px; letter-spacing: .03em; }
+  .typo-sample { flex: 1; color: var(--text); }
+  .typo-meta { font-size: 11px; color: var(--muted); font-family: 'SF Mono', Menlo, monospace; white-space: nowrap; }
+  .token-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+  .token-item { display: flex; justify-content: space-between; align-items: center; padding: 9px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
+  .token-name { font-size: 12px; color: var(--muted); font-family: 'SF Mono', Menlo, monospace; }
+  .token-value { font-size: 12px; font-family: 'SF Mono', Menlo, monospace; font-weight: 600; color: var(--text); }
+  .design-notes { margin-top: 14px; font-size: 13px; color: var(--muted); font-style: italic; padding: 10px 14px; background: #1c2128; border-radius: 8px; border-left: 3px solid var(--primary); }
+  /* 결정 카드 내 색상 칩 */
+  .opt-colors { display: flex; gap: 4px; margin-top: 8px; }
+  .opt-color-chip { width: 28px; height: 28px; border-radius: 6px; border: 1px solid rgba(255,255,255,.12); flex-shrink: 0; }
 </style>
 </head>
 <body>
@@ -505,7 +618,8 @@ function toggleFolder(id, el) {
     dec.options.forEach(opt => {
       const row = el('div', 'option'); row.dataset.type = dec.type;
       if (preset.includes(opt.label)) row.classList.add('selected');
-      row.innerHTML = '<div class="marker"></div><div class="opt-body"><div class="opt-label">' + esc(opt.label) + (opt.recommended ? '<span class="rec">추천</span>' : '') + '</div>' + (opt.desc ? '<div class="opt-desc">' + esc(opt.desc) + '</div>' : '') + '</div>';
+      const colorsHtml = opt.colors ? '<div class="opt-colors">' + opt.colors.map(c => '<span class="opt-color-chip" style="background:' + esc(c) + '"></span>').join('') + '</div>' : '';
+      row.innerHTML = '<div class="marker"></div><div class="opt-body"><div class="opt-label">' + esc(opt.label) + (opt.recommended ? '<span class="rec">추천</span>' : '') + '</div>' + (opt.desc ? '<div class="opt-desc">' + esc(opt.desc) + '</div>' : '') + colorsHtml + '</div>';
       if (!confirmed) row.addEventListener('click', () => toggle(dec, opt, row, opts));
       opts.appendChild(row);
     });
@@ -731,6 +845,129 @@ function toggleFolder(id, el) {
     vizEl.innerHTML = html;
     targetH2.after(vizEl);
   })();
+
+  // "2.5 디자인 시스템" 섹션을 시각 컴포넌트로 교체
+  (function enhanceDesign() {
+    if (!PLAN.design) return;
+    const body = document.getElementById('plan-body');
+    if (!body) return;
+
+    let targetH2 = null;
+    body.querySelectorAll('h2').forEach(h => {
+      if (h.textContent.includes('디자인')) targetH2 = h;
+    });
+    if (!targetH2) return;
+
+    // 헤딩 ~ 다음 h2 사이의 기존 요소 제거
+    const toRemove = [];
+    let el = targetH2.nextElementSibling;
+    while (el && el.tagName !== 'H2') { toRemove.push(el); el = el.nextElementSibling; }
+    toRemove.forEach(e => e.remove());
+
+    const d = PLAN.design;
+    let html = '<div class="design-section">';
+
+    // 소스 뱃지
+    if (d.source === 'existing') {
+      html += '<div class="design-source existing"><i class="mdi mdi-check-circle" style="font-size:14px"></i> ' + esc(d.sourceFile) + ' 에서 추출</div>';
+    } else if (d.source === 'generated') {
+      html += '<div class="design-source generated"><i class="mdi mdi-auto-fix" style="font-size:14px"></i> ' + esc(d.generator || 'ui-ux-pro-max') + ' 생성 — ' + esc(d.category || '') + '</div>';
+    } else {
+      html += '<div class="design-source new"><i class="mdi mdi-palette" style="font-size:14px"></i> 새 디자인 시스템</div>';
+    }
+
+    // 색상 팔레트
+    if (d.colors && d.colors.length) {
+      html += '<div class="design-label">Colors</div><div class="color-grid">';
+      d.colors.forEach(c => {
+        const lum = hexLuminance(c.value);
+        const checkColor = lum > 0.5 ? 'rgba(0,0,0,.15)' : 'rgba(255,255,255,.15)';
+        html += '<div class="color-swatch">' +
+          '<div class="swatch-color" style="background:' + esc(c.value) + '">' +
+          '<svg width="20" height="20" viewBox="0 0 20 20" style="position:absolute;right:4px;bottom:4px;opacity:.3"><rect width="20" height="20" rx="4" fill="' + checkColor + '"/></svg>' +
+          '</div>' +
+          '<div class="swatch-info"><span class="swatch-name">' + esc(c.name) + '</span>' +
+          '<span class="swatch-value">' + esc(c.value) + '</span>' +
+          (c.desc ? '<span class="swatch-desc">' + esc(c.desc) + '</span>' : '') +
+          '</div></div>';
+      });
+      html += '</div>';
+    }
+
+    // 타이포그래피
+    if (d.typography) {
+      html += '<div class="design-label">Typography</div><div class="typo-list">';
+      const roles = Object.entries(d.typography);
+      roles.forEach(([role, t]) => {
+        const size = role === 'heading' ? '20px' : role === 'mono' ? '14px' : '15px';
+        html += '<div class="typo-row">' +
+          '<span class="typo-role">' + esc(role) + '</span>' +
+          '<span class="typo-sample" style="font-family:' + esc(t.family) + ';font-weight:' + t.weight + ';font-size:' + size + '">놀먹 - 놀고 먹자 Aa Bb 가나다 123</span>' +
+          '<span class="typo-meta">' + esc(t.family.split(',')[0]) + ' / ' + t.weight + '</span>' +
+          '</div>';
+      });
+      html += '</div>';
+    }
+
+    // 토큰
+    if (d.tokens && d.tokens.length) {
+      html += '<div class="design-label">Tokens</div><div class="token-grid">';
+      d.tokens.forEach(t => {
+        html += '<div class="token-item"><span class="token-name">' + esc(t.name) + '</span><span class="token-value">' + esc(t.value) + '</span></div>';
+      });
+      html += '</div>';
+    }
+
+    // 스타일 + 패턴 (generated 전용)
+    if (d.style || d.pattern) {
+      html += '<div class="design-label">Style & Pattern</div>';
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">';
+      if (d.style) {
+        html += '<div class="token-item" style="flex-direction:column;align-items:flex-start;gap:4px">' +
+          '<span style="font-weight:700;color:var(--text)">' + esc(d.style.name) + '</span>' +
+          (d.style.keywords ? '<span class="token-name" style="font-size:11px">' + esc(d.style.keywords) + '</span>' : '') +
+          '</div>';
+      }
+      if (d.pattern) {
+        html += '<div class="token-item" style="flex-direction:column;align-items:flex-start;gap:4px">' +
+          '<span style="font-weight:700;color:var(--text)">' + esc(d.pattern.name) + '</span>' +
+          (d.pattern.sections ? '<span class="token-name" style="font-size:11px">' + esc(d.pattern.sections) + '</span>' : '') +
+          '</div>';
+      }
+      html += '</div>';
+      if (d.style && d.style.effects) {
+        html += '<div style="margin-top:8px;font-size:12px;color:var(--muted)"><strong style="color:var(--good)">Effects:</strong> ' + esc(d.style.effects) + '</div>';
+      }
+      if (d.style && d.style.antiPatterns) {
+        html += '<div style="margin-top:4px;font-size:12px;color:#f85149"><strong>Avoid:</strong> ' + esc(d.style.antiPatterns) + '</div>';
+      }
+    }
+
+    // Google Fonts URL
+    if (d.googleFontsUrl) {
+      html += '<div class="design-label">Google Fonts</div>';
+      html += '<div class="token-item"><span class="token-name" style="font-size:11px;word-break:break-all">' + esc(d.googleFontsUrl) + '</span></div>';
+    }
+
+    // 노트
+    if (d.notes) {
+      html += '<div class="design-notes">' + esc(d.notes) + '</div>';
+    }
+
+    html += '</div>';
+    const vizEl = document.createElement('div');
+    vizEl.innerHTML = html;
+    targetH2.after(vizEl);
+  })();
+
+  function hexLuminance(hex) {
+    hex = hex.replace('#', '');
+    if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+    const r = parseInt(hex.substr(0,2), 16) / 255;
+    const g = parseInt(hex.substr(2,2), 16) / 255;
+    const b = parseInt(hex.substr(4,2), 16) / 255;
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  }
 
   function copy(text) { navigator.clipboard.writeText(text).then(showToast).catch(() => { const t=document.createElement('textarea'); t.value=text; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); showToast(); }); }
   let tt; function showToast() { const t=document.getElementById('toast'); t.classList.add('show'); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove('show'),1600); }

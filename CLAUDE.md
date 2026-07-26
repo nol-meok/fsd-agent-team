@@ -39,13 +39,20 @@
 - 대상 프로젝트에서 관련 기존 코드 탐색 (Glob, Grep, Read 활용)
 - **작업계획서를 `.md` + `.html` 한 쌍으로 작성**:
   - `plans/유형/YYYYMMDD-제목.md`: FSD 레이어 배치, 파일 목록, 작업 순서
-  - `plans/유형/YYYYMMDD-제목.html`: `docs/plan-template.html` 기반으로 결정 콘솔 + md 본문 임베드
-- 템플릿: docs/plan-template.md, docs/plan-template.html
+  - `plans/유형/YYYYMMDD-제목.html`: **빌더로 생성** (직접 작성/치환 금지)
+- 템플릿·스키마: docs/plan-template.md
+
+```bash
+python3 scripts/build-plan-html.py plans/유형/YYYYMMDD-제목.md --data /tmp/plan.json
+```
+
+빌더 검증이 전부 `✓` 가 아니면 사용자에게 보여주지 않는다.
 
 ### 2단계: 사용자 승인
 - `.html` 경로를 제시하여 브라우저에서 열도록 안내
 - 사용자는 HTML에서 항목을 선택하고 **[프롬프트로 복사]** → 채팅에 붙여넣기
-- Team Lead는 붙여넣은 결정대로 `.md`를 확정하고 html `decisions[]`에 `decided` 채움
+- Team Lead는 붙여넣은 결정대로 `.md`를 확정하고, PLAN JSON의 각 결정에
+  `decided`를 채워 `--force`로 재빌드 (확정 뷰로 잠김)
 
 ### 3단계: 코딩 디스패치
 - Coder에게 승인된 작업 항목을 디스패치
@@ -76,9 +83,26 @@
 
 ---
 
+## 산출물 경로 규약
+
+| 종류 | 경로 |
+|------|------|
+| 기능 계획서 | `plans/feature/YYYYMMDD-제목.{md,html}` |
+| 마이그레이션 계획서 | `plans/migrate/YYYYMMDD-제목.{md,html}` |
+| FSD 검수 리포트 | `reports/review/YYYYMMDD-HHMM.html` |
+| 리팩토링 리포트 | `reports/refactor/YYYYMMDD-HHMM.html` |
+
+`plans/` 는 **승인 대상인 계획서 전용**. 결과 리포트는 `reports/` 에 둔다.
+
+---
+
 ## 참고 문서
 
 - **FSD 규칙**: .claude/rules/fsd-architecture.md
 - **코딩 규칙**: .claude/rules/coding-standards.md
-- **계획서 템플릿**: docs/plan-template.md, docs/plan-template.html
+- **디스패치 규칙**: .claude/rules/dispatch-protocol.md
+- **계획서 템플릿·PLAN 스키마**: docs/plan-template.md
+- **계획서 HTML 빌더**: scripts/build-plan-html.py
+- **FSD 자동 검사**: scripts/lint-fsd.ts (`npx tsx scripts/lint-fsd.ts <src경로>`)
 - **팀원 프로필**: docs/agents/*.md
+- **디자인 시스템 도구**: tools/ui-ux-pro-max/ (`/plan` 4단계에서 사용)

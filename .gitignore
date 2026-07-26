@@ -2,4 +2,27 @@ node_modules/
 .env
 .env.local
 .DS_Store
+
+# 계획서 — 대상 프로젝트 작업 산출물이라 커밋하지 않는다.
+# README 가 예시로 링크하는 2건만 추적한다.
 plans/archive/
+plans/feature/*
+plans/migrate/*
+!plans/feature/20260726-review.*
+!plans/migrate/20260726-legacy-shop.*
+
+# 검수/리팩토링 리포트 (구조만 추적)
+reports/review/*
+reports/refactor/*
+!reports/*/.gitkeep
+
+# init.sh 가 기억하는 대상 프로젝트 경로 (로컬 설정)
+.fsd-team.conf
+
+# OMC 런타임 상태 (.omc/skills 는 프로젝트 스킬이므로 예외)
+.omc/
+!.omc/skills/
+
+# Python 캐시
+__pycache__/
+*.pyc
