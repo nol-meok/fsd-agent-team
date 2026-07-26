@@ -274,12 +274,104 @@ def normalize_plan(plan, md_path):
                 raise BuildError(
                     f"layers[{idx}].files[{f_idx}].type 은 CREATE/MODIFY/DELETE/MOVE 중 하나여야 합니다."
                 )
+            # 한 항목 = 한 파일. 글롭이나 여러 경로를 몰아 쓰면 파일트리가 쪼개지지 않고
+            # beforeAfter 의 moveTo 매칭도 조용히 깨진다.
+            path = entry["path"]
+            bad_char = next((c for c in "{}*" if c in path), None)
+            if bad_char:
+                raise BuildError(
+                    f"layers[{idx}].files[{f_idx}].path 에 {bad_char!r} 가 있습니다: {path!r}\n"
+                    "  중괄호 글롭 대신 파일을 하나씩 나열하세요."
+                )
+            if any(c.isspace() for c in path):
+                raise BuildError(
+                    f"layers[{idx}].files[{f_idx}].path 에 공백이 있습니다: {path!r}\n"
+                    "  경로 여러 개를 한 문자열에 몰아쓰지 말고 항목을 나누세요."
+                )
+            if path.endswith("/"):
+                raise BuildError(
+                    f"layers[{idx}].files[{f_idx}].path 가 '/' 로 끝납니다: {path!r}\n"
+                    "  layers 에는 파일만 넣습니다. 폴더 단위 삭제는 md 본문에 적으세요."
+                )
 
     for idx, issue in enumerate(plan.get("issues") or []):
         if issue.get("severity") not in ("critical", "warning", "info"):
             raise BuildError(f"issues[{idx}].severity 는 critical/warning/info 중 하나여야 합니다.")
 
+    _check_type_layout(plan)
+    _check_move_targets(plan)
     return plan
+
+
+# beforeAfter.before 가 있으면 렌더러가 "3. FSD 레이어 배치" 를 2컬럼 비교 뷰로 바꾼다.
+# 레이아웃이 type 이 아니라 데이터로 갈리므로, 둘이 어긋나면 조용히 엉뚱한 화면이 나온다.
+_LAYOUT_COMPARE_TYPES = ("migrate", "refactor")
+
+
+def _check_type_layout(plan):
+    has_before = bool((plan.get("beforeAfter") or {}).get("before"))
+    plan_type = plan["type"]
+
+    if plan_type == "migrate" and not has_before:
+        raise BuildError(
+            "type 이 'migrate' 인데 beforeAfter.before 가 없습니다.\n"
+            "  비교 뷰가 사라지고 feature 와 같은 레이아웃으로 렌더됩니다.\n"
+            "  마이그레이션 전 파일을 전수로 넣으세요."
+        )
+    if plan_type not in _LAYOUT_COMPARE_TYPES and has_before:
+        raise BuildError(
+            f"type 이 {plan_type!r} 인데 beforeAfter.before 가 있습니다.\n"
+            "  '3. FSD 레이어 배치' 가 2컬럼 비교 뷰로 바뀝니다 (migrate 레이아웃).\n"
+            f"  비교 뷰가 필요하면 type 을 {' 또는 '.join(_LAYOUT_COMPARE_TYPES)} 로,\n"
+            "  아니면 beforeAfter 를 지우세요."
+        )
+
+
+def _check_move_targets(plan):
+    """beforeAfter.before[].moveTo 가 layers 의 실제 경로를 가리키는지 확인한다.
+
+    구조 비교 뷰의 오른쪽 패널은 layers 로 그려지고, 왼쪽 파일 클릭 시
+    moveTo 를 layers 경로와 문자열 정확 매칭해서 목적지를 하이라이트한다.
+    매칭이 빗나가면 클릭해도 아무 일이 없다 — 화면상 오류가 없어 놓치기 쉽다.
+    """
+    before = ((plan.get("beforeAfter") or {}).get("before")) or []
+    layers = plan.get("layers") or []
+    if not before or not layers:
+        return
+
+    known = {f["path"] for layer in layers for f in layer["files"]}
+    missing = []
+    for idx, item in enumerate(before):
+        if not isinstance(item, dict):
+            continue
+        raw = item.get("moveTo", item.get("movesTo"))
+        if not raw:
+            continue
+        for dest in raw if isinstance(raw, list) else [raw]:
+            if dest not in known:
+                missing.append(f"beforeAfter.before[{idx}] {item.get('path')!r} → {dest!r}")
+
+    if missing:
+        raise BuildError(
+            "moveTo 가 layers[].files[].path 에 없습니다 (클릭해도 하이라이트되지 않음):\n  "
+            + "\n  ".join(missing)
+            + "\n  레이어명이나 설명 문구가 아니라 정확한 목적지 파일 경로를 쓰세요."
+        )
+
+
+def md_sync_warnings(plan, md_text):
+    """layers 의 경로가 md 본문에 등장하는지 본다.
+
+    md 와 PLAN JSON 은 같은 계획의 두 표현이다. 한쪽만 고치면 조용히 어긋난다.
+    md 는 표로 적히므로 경로 문자열이 그대로 나타나야 한다.
+    """
+    absent = [
+        f["path"]
+        for layer in plan.get("layers") or []
+        for f in layer["files"]
+        if f["path"] not in md_text
+    ]
+    return absent
 
 
 # ---------------------------------------------------------------- CLI
@@ -326,7 +418,8 @@ def cmd_build(md_path, data_arg, out_path, force):
         # 계획서는 승인 이력이 담긴 문서다. 조용히 덮어쓰지 않는다.
         raise BuildError(f"이미 존재합니다: {out}\n  덮어쓰려면 --force 를 붙이세요.")
 
-    md_body = md_safe(md_path.read_text(encoding="utf-8").strip())
+    md_text = md_path.read_text(encoding="utf-8").strip()
+    md_body = md_safe(md_text)
     plan_json = "const PLAN = " + js_safe(json.dumps(plan, ensure_ascii=False, indent=2))
 
     html = inject(TEMPLATE.read_text(encoding="utf-8"), plan_json, md_body)
@@ -344,6 +437,16 @@ def cmd_build(md_path, data_arg, out_path, force):
     print(f"   PLAN: {len(plan.get('decisions', []))}개 결정 · "
           f"{sum(len(l['files']) for l in plan.get('layers') or [])}개 파일 · "
           f"{len(plan.get('steps') or [])}단계")
+
+    absent = md_sync_warnings(plan, md_text)
+    if absent:
+        print(f"\n⚠  md 본문에 없는 layers 경로 {len(absent)}개 — md 와 PLAN 이 어긋났습니다:")
+        for path in absent[:10]:
+            print(f"     {path}")
+        if len(absent) > 10:
+            print(f"     … 외 {len(absent) - 10}개")
+        print("   md 표를 채워 같은 턴에 다시 빌드하세요.")
+
     print(f"   열기: open {out}")
     return 0
 

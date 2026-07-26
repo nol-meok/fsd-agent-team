@@ -50,24 +50,44 @@ argument-hint: "(인자 없음 또는 추가 지시)"
 `plans/migrate/YYYYMMDD-제목.md` + `.html` 쌍으로 작성한다.
 **html 은 반드시 빌더로 생성한다** — 스키마와 이유는 `docs/plan-template.md` 참고.
 
+PLAN JSON 은 `/tmp` 가 아니라 **계획서 옆에** 둔다. `/tmp` 에 두면 세션이 끝난 뒤
+html 을 다시 빌드할 방법이 사라진다 (`plans/migrate/20260726-legacy-shop.html` 이
+실제로 그 상태다 — 렌더러가 바뀌어도 갱신이 불가능하다).
+
 ```bash
-python3 scripts/build-plan-html.py plans/migrate/YYYYMMDD-제목.md --data /tmp/plan.json
+python3 scripts/build-plan-html.py plans/migrate/YYYYMMDD-제목.md \
+  --data plans/migrate/YYYYMMDD-제목.plan.json
 ```
+
+따라서 계획서는 **3개 파일 한 세트**다: `.md` (본문) · `.plan.json` (PLAN 데이터) ·
+`.html` (빌더 산출물). 셋 중 하나만 고치지 않는다.
 
 md 섹션 제목을 유지하면 렌더러가 아래 시각화를 자동으로 붙인다:
 
 | md 섹션 | PLAN 필드 | 시각화 |
 |---------|-----------|--------|
 | `## 문제 분석` | `issues` | severity 카드 + 상단 요약 카운트 |
-| `## 구조 비교` | `beforeAfter` | Before/After 2컬럼 (문제 파일 🔴, 이동 경로 →) |
-| `## 3. FSD 레이어 배치` | `layers` | 플로우 바 + 파일트리 (MOVE/CREATE/MODIFY 태그) |
+| `## 3. FSD 레이어 배치` | `beforeAfter.before` + `layers` | **2컬럼 비교 뷰** — 왼쪽 현재 구조, 오른쪽 FSD 구조. 왼쪽 파일 클릭 → 오른쪽에서 목적지 하이라이트 |
 | `## 4. 작업 순서` | `steps` | Phase별 타임라인 |
+
+**`## 구조 비교` 섹션을 따로 만들지 않는다.** `beforeAfter.before` 가 있으면 렌더러가
+`## 3. FSD 레이어 배치` 를 2컬럼 비교 뷰로 바꾼다 (플로우 바는 폭 때문에 생략된다).
+섹션을 둘로 나누면 같은 FSD 트리를 두 번 그리게 된다. 남아 있으면 렌더러가 걷어낸다.
 
 마이그레이션 특유의 데이터:
 - `issues[]` — 1-2 에서 찾은 문제. `severity` 는 `critical`/`warning`/`info`
-- `beforeAfter.before[]` — `{ path, issue: true, movesTo: '이동 대상' }` 형태로 적으면
-  문제 파일에 빨간 점과 이동 경로가 함께 표시된다
-- `layers[].files[].type` 에 `MOVE` 를 쓴다 (신규 생성이 아닌 이동)
+- `beforeAfter.before[]` — `{ path, lines, issue: true, moveTo }` 형태.
+  **마이그레이션 전 파일을 전수로 넣는다** (일부만 넣으면 현재 구조 스냅샷이 안 된다)
+  - `moveTo` 는 **정확한 목적지 파일 경로**다. `'widgets'` 나 `'widgets/meal-card 로 분리'`
+    같은 설명 문구를 쓰면 클릭해도 하이라이트가 안 된다 (조용히 실패)
+  - 거대 파일이 여러 곳으로 쪼개지면 **배열**로 전부 나열한다 → 목적지가 동시에 하이라이트된다
+  - 그대로 남는 파일은 `moveTo` 생략
+  - 오른쪽 패널은 `layers` 로 그려지므로 `moveTo` 는 `layers[].files[].path` 에
+    **반드시 존재해야 한다.** 빌더가 검사해서 안 맞으면 빌드를 거부한다
+- `layers[].files[].type` 에 `MOVE` 를 쓴다 (신규 생성이 아닌 이동).
+  `path` 는 **한 항목 = 한 파일**. 중괄호 글롭(`{a,b}.tsx`), 공백으로 이어붙인 여러 경로,
+  `/` 로 끝나는 폴더 경로는 빌더가 거부한다 (트리가 안 쪼개지고 `moveTo` 매칭도 깨진다).
+  폴더 단위 삭제는 md 본문에 글로 적는다
 - `decisions` — Phase 분할 범위, 한 번에 갈지 점진적으로 갈지 등
 
 ### 3단계: 사용자 승인 후 Phase별 실행

@@ -198,11 +198,18 @@ python3 search.py "<기능 키워드>" --domain icons --json -n 3
 #    (섹션 제목은 템플릿 그대로 유지 — 렌더러가 제목으로 시각화를 붙인다)
 
 # 2) PLAN JSON 작성 → 빌더로 html 생성
-python3 scripts/build-plan-html.py plans/feature/YYYYMMDD-제목.md --data /tmp/plan.json
+#    JSON 은 계획서 옆에 둔다. /tmp 에 두면 나중에 재빌드가 불가능하다.
+python3 scripts/build-plan-html.py plans/feature/YYYYMMDD-제목.md \
+  --data plans/feature/YYYYMMDD-제목.plan.json
 ```
 
 **HTML 을 직접 작성하거나 템플릿을 문자열 치환하지 않는다.** 반드시 빌더를 쓴다.
 이유와 스키마는 `docs/plan-template.md` 참고.
+
+**`beforeAfter` 는 넣지 않는다.** 이 필드가 있으면 렌더러가 `## 3. FSD 레이어 배치` 를
+migrate 용 2컬럼 비교 뷰로 바꾼다. 기능 계획서는 플로우 바 + 레이어별 파일트리가 맞다.
+`type` 이 `feature`/`bugfix` 인데 `beforeAfter` 가 있으면 빌더가 빌드를 거부한다.
+기존 구조를 크게 옮기는 작업이면 `/migrate-fsd` 를 쓴다.
 
 ### 계획서 필수 포함
 - FSD 레이어별 파일 배치 (`layers`) — 레이어 색상은 `docs/plan-template.md` 팔레트 고정

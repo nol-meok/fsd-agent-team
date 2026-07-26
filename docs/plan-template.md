@@ -1,11 +1,15 @@
 # 작업계획서 템플릿
 
-계획서는 항상 **`.md` + `.html` 한 쌍**으로 만든다.
+계획서는 항상 **`.md` + `.plan.json` + `.html` 한 세트**로 만든다.
 
 | 파일 | 역할 |
 |------|------|
 | `plans/유형/YYYYMMDD-제목.md` | 계획서 본문 (사람이 읽고 git diff 로 추적) |
+| `plans/유형/YYYYMMDD-제목.plan.json` | PLAN 데이터 (빌더 입력) |
 | `plans/유형/YYYYMMDD-제목.html` | 결정 콘솔 + 시각화 (브라우저에서 승인) |
+
+**PLAN JSON 을 `/tmp` 에 두지 않는다.** 세션이 끝나면 html 을 다시 빌드할 방법이 사라진다.
+`20260726-legacy-shop.html` 이 실제로 그 상태다 — 렌더러가 개선돼도 갱신할 수 없다.
 
 `유형` 은 `feature` 또는 `migrate`.
 
@@ -18,13 +22,15 @@
 ```bash
 # 1) PLAN 데이터를 JSON 파일로 작성
 #    (또는 stdin 으로 파이프)
-python3 scripts/build-plan-html.py plans/feature/20260727-제목.md --data /tmp/plan.json
+python3 scripts/build-plan-html.py plans/feature/20260727-제목.md \
+  --data plans/feature/20260727-제목.plan.json
 
 # 기존 html 점검 (수정 없음)
 python3 scripts/build-plan-html.py plans/feature/20260727-제목.html --verify-only
 
 # 이미 있는 html 갱신
-python3 scripts/build-plan-html.py plans/feature/20260727-제목.md --data /tmp/plan.json --force
+python3 scripts/build-plan-html.py plans/feature/20260727-제목.md \
+  --data plans/feature/20260727-제목.plan.json --force
 ```
 
 빌더는 쓰기 전에 검증하고, 검증에 실패하면 **파일을 남기지 않는다.**
@@ -55,10 +61,28 @@ HTML 렌더러는 아래 h2 제목을 키워드로 찾아 해당 섹션을 시�
 | md 섹션 제목 | 교체되는 시각화 | PLAN 필드 |
 |--------------|-----------------|-----------|
 | `## 2.5 디자인 시스템` | 색상/폰트/규칙 카드 | `design` |
-| `## 3. FSD 레이어 배치` | 플로우 바 + 파일트리 | `layers` |
+| `## 3. FSD 레이어 배치` | 플로우 바 + 레이어별 파일트리 | `layers` |
+| `## 3. FSD 레이어 배치` (migrate) | **2컬럼 비교 뷰** (클릭→목적지 하이라이트) | `beforeAfter.before` + `layers` |
 | `## 4. 작업 순서` | 타임라인 | `steps` |
 | `## 문제 분석` (migrate) | severity 카드 | `issues` |
-| `## 구조 비교` (migrate) | Before/After 2컬럼 | `beforeAfter` |
+
+`beforeAfter.before` 가 있으면 `## 3. FSD 레이어 배치` 가 2컬럼 비교 뷰로 바뀐다
+(플로우 바 생략). **migrate 계획서에 `## 구조 비교` 섹션을 따로 두지 않는다** —
+같은 FSD 트리를 두 번 그리게 된다. 남아 있으면 렌더러가 걷어낸다.
+
+**섹션 구성은 type 마다 다르다.** 공통 골격에서 3번 자리만 갈린다.
+
+| 섹션 | feature / bugfix | migrate |
+|------|------------------|---------|
+| `## 1. 개요` | ✓ | ✓ |
+| `## 2. 현재 상태 분석` | ✓ | ✓ |
+| `## 2.5 디자인 시스템` | ✓ (`design`) | ✗ |
+| `## 문제 분석` | ✗ | ✓ (`issues`) |
+| `## 3. FSD 레이어 배치` | ✓ 플로우 바 + 트리 | ✓ 2컬럼 비교 뷰 |
+| `## 4. 작업 순서` ~ `## 7. 작업 배분` | ✓ | ✓ |
+
+`## 문제 분석` 은 **`## 2. 현재 상태 분석` 보다 뒤에** 둔다. 렌더러가 앞 키워드부터
+전체 h2 를 훑으므로 순서 자체가 매칭을 바꾸지는 않지만, 읽는 흐름이 현황 → 문제다.
 
 ```markdown
 # [제목]
@@ -72,9 +96,13 @@ HTML 렌더러는 아래 h2 제목을 키워드로 찾아 해당 섹션을 시�
 ## 2. 현재 상태 분석
 - 관련 기존 코드 (파일 경로)
 - 프로젝트 구조 현황
+- (migrate) 기준선: build / test / git 상태를 실측해서 적는다
 
-## 2.5 디자인 시스템
+## 2.5 디자인 시스템          ← feature 전용
 (PLAN.design 이 이 섹션을 대체한다. 요약 한두 줄만 적어두면 된다)
+
+## 문제 분석                  ← migrate 전용
+(PLAN.issues 가 이 섹션을 대체한다. md 에는 severity 별로 적어 git diff 로 읽히게 유지)
 
 ## 3. FSD 레이어 배치
 (PLAN.layers 가 이 섹션을 대체한다. md 에는 표로 적어 git diff 로 읽히게 유지)
@@ -172,7 +200,10 @@ HTML 렌더러는 아래 h2 제목을 키워드로 찾아 해당 섹션을 시�
   ],
 
   "beforeAfter": {
-    "before": [{ "path": "src/components/ProductPage.tsx", "issue": true, "movesTo": "widgets/product-page" }],
+    "before": [
+      { "path": "src/components/ProductPage.tsx", "lines": 420, "issue": true,
+        "moveTo": ["src/widgets/product-page/ui/ProductPage.tsx", "src/entities/product/api/productApi.ts"] }
+    ],
     "after": ["src/widgets/product-page/ui/ProductPage.tsx"]
   },
 
@@ -196,7 +227,13 @@ HTML 렌더러는 아래 h2 제목을 키워드로 찾아 해당 섹션을 시�
 
 ### 필드 규칙
 
-- `type`: `feature` | `bugfix` | `refactor` | `migrate`
+- `type`: `feature` | `bugfix` | `refactor` | `migrate`.
+  **레이아웃이 `type` 에 묶여 있다.** `beforeAfter.before` 가 있으면
+  `## 3. FSD 레이어 배치` 가 2컬럼 비교 뷰가 되고, 없으면 플로우 바 + 레이어별 트리다.
+  빌더가 다음을 강제한다 (조용히 엉뚱한 레이아웃이 나오는 것을 막는다):
+  - `migrate` → `beforeAfter.before` **필수**
+  - `feature` / `bugfix` → `beforeAfter` **금지**
+  - `refactor` → 선택 (넣으면 비교 뷰)
 - `deps`: 렌더러가 시각화하지 않는다. 화면에 보이는 쪽은 md 의 "5. Import 의존성" 코드 펜스이고,
   이 필드는 기계 판독용 기록이다. 둘 중 하나만 채우지 말고 내용을 일치시킨다
 - `design.checklist`: `ui-ux-pro-max` 의 `--domain style` 결과에 있는
@@ -206,6 +243,15 @@ HTML 렌더러는 아래 h2 제목을 키워드로 찾아 해당 섹션을 시�
 - `design.motion[].notes`: `--domain gsap` 의 `Framework Notes` (유료 플러그인 라이선스,
   React 바인딩 방식 등). duration/easing 은 DB 값을 그대로 쓴다
 - `layers[].files[].type`: `CREATE` | `MODIFY` | `DELETE` | `MOVE`
+- `beforeAfter.before[].moveTo`: **정확한 목적지 파일 경로.** 레이어명·슬라이스명 같은
+  설명 문구를 쓰면 안 된다. 파일이 여러 곳으로 쪼개지면 배열로 나열한다.
+  렌더러가 이 값을 `layers[].files[].path` 와 **문자열 정확 매칭**해서 오른쪽 FSD 트리의
+  해당 행을 찾는다. 매칭이 안 되면 클릭해도 아무 일이 없다 (조용히 실패한다).
+  옮기지 않고 그대로 남는 파일은 `moveTo` 를 생략한다 — 클릭 대상에서 빠진다
+- `beforeAfter.after`: 오른쪽 패널은 `layers` 로 그려지므로 **화면에 쓰이지 않는다.**
+  `deps` 와 같은 기계 판독용 기록이며, `layers` 의 경로 목록과 일치시켜 둔다
+- `layers[].files[].path` 에 중괄호 글롭(`{a,b}.tsx`)이나 여러 경로를 한 문자열에
+  몰아 쓰지 않는다. 트리가 쪼개지지 않고 `moveTo` 매칭도 깨진다. 한 항목 = 한 파일
 - `issues[].severity`: `critical` | `warning` | `info`
 - `decisions[].type`: `single` (택1) | `multi` (복수)
 - `decisions[].options[].colors`: 색상 팔레트 결정 카드에서 칩 미리보기로 표시

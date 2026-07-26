@@ -37,13 +37,16 @@
 ### 1단계: 분석 & 계획서 작성
 - 사용자의 요청을 파악
 - 대상 프로젝트에서 관련 기존 코드 탐색 (Glob, Grep, Read 활용)
-- **작업계획서를 `.md` + `.html` 한 쌍으로 작성**:
+- **작업계획서를 `.md` + `.plan.json` + `.html` 한 세트로 작성**:
   - `plans/유형/YYYYMMDD-제목.md`: FSD 레이어 배치, 파일 목록, 작업 순서
+  - `plans/유형/YYYYMMDD-제목.plan.json`: PLAN 데이터 (`/tmp` 에 두지 않는다 — 세션이
+    끝나면 html 재빌드가 불가능해진다)
   - `plans/유형/YYYYMMDD-제목.html`: **빌더로 생성** (직접 작성/치환 금지)
 - 템플릿·스키마: docs/plan-template.md
 
 ```bash
-python3 scripts/build-plan-html.py plans/유형/YYYYMMDD-제목.md --data /tmp/plan.json
+python3 scripts/build-plan-html.py plans/유형/YYYYMMDD-제목.md \
+  --data plans/유형/YYYYMMDD-제목.plan.json
 ```
 
 빌더 검증이 전부 `✓` 가 아니면 사용자에게 보여주지 않는다.

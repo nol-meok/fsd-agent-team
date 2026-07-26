@@ -266,10 +266,27 @@
   .ba-title { padding: 10px 14px; font-size: 12px; font-weight: 700; background: #1c2128; display: flex; align-items: center; gap: 6px; }
   .ba-title.before { color: var(--muted); }
   .ba-title.after { color: var(--good); }
-  .ba-list { padding: 8px 12px; margin: 0; list-style: none; max-height: 520px; overflow-y: auto; }
-  .ba-list li { font-family: var(--mono); font-size: 12px; padding: 3px 0; color: var(--muted); display: flex; align-items: flex-start; gap: 6px; }
-  .ba-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--bad); flex-shrink: 0; margin-top: 6px; }
-  .ba-moves { font-size: 11px; color: #a371f7; margin-left: auto; padding-left: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45%; }
+  .ba-tree { padding: 8px 6px; max-height: 560px; overflow-y: auto; background: #1c2128; }
+  .ba-tree .tree-item-inner { padding: 4px 8px 4px 4px; }
+  .ba-tree .tree-filename { font-size: 12px; }
+  .ba-tree .file-count { font-size: 10px; font-weight: 600; opacity: .5; margin-left: auto; }
+  .ba-tree .layer-desc { font-size: 11px; opacity: .6; margin-left: 8px; }
+  .ba-count { font-family: var(--mono); font-size: 10px; font-weight: 700; background: rgba(255,255,255,.08); padding: 1px 6px; border-radius: 999px; margin: 0 6px 0 2px; }
+  .ba-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--bad); flex-shrink: 0; margin-left: 6px; }
+  .ba-lines { font-family: var(--mono); font-size: 10px; font-weight: 600; color: var(--warn); background: var(--warn-weak); padding: 1px 5px; border-radius: 3px; margin-left: 8px; flex-shrink: 0; }
+  /* 좌측 before 행: 클릭 대상. 이동 경로 배지는 hover/선택 시에만 드러낸다 */
+  .before-file { cursor: pointer; transition: background .12s; border-radius: 4px; }
+  .before-file:hover { background: rgba(255,255,255,.04); }
+  .before-file.active { background: rgba(88,166,255,.12); }
+  .before-move-tags { display: flex; gap: 4px; margin-left: auto; padding-left: 8px; flex-shrink: 0; }
+  .before-move-tag { font-family: var(--mono); font-size: 10px; padding: 1px 6px; border-radius: 3px; white-space: nowrap; opacity: 0; transition: opacity .15s; }
+  .before-file:hover .before-move-tag, .before-file.active .before-move-tag { opacity: 1; }
+  /* 우측 FSD 행: 클릭된 before 파일의 목적지 */
+  .fsd-highlight { border-radius: 4px; animation: fsdPulse .6s ease 5; }
+  @keyframes fsdPulse {
+    0%, 100% { background: transparent; }
+    50% { background: rgba(88,166,255,.28); }
+  }
 
   /* 하단 고정 액션 바 */
   .actionbar { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(13,17,23,.92); backdrop-filter: blur(8px); border-top: 1px solid var(--border); box-shadow: 0 -2px 12px rgba(0,0,0,.3); padding: 14px 20px; }
@@ -590,13 +607,40 @@
   // ---------------------------------------------------------------- 섹션 마운트
   // md 본문의 해당 h2 섹션을 시각 컴포넌트로 교체한다.
   // 헤딩을 못 찾으면 본문 끝에 제목과 함께 덧붙인다 (데이터가 조용히 사라지지 않도록).
+  const stripSrc = (p) => p.replace(/^src\//, '');
+
+  // keywords 는 구체적인 것부터 나열한다. 앞 키워드를 전체 h2 에서 먼저 찾고,
+  // 없을 때만 다음 키워드로 내려간다.
+  //
+  // h2 를 바깥 루프로 돌면 우선순위가 뒤집힌다. 실제로 ['문제', '현재 상태 분석'] 이
+  // '## 2. 현재 상태 분석' 을 먼저 잡아 기준선 표를 덮어쓰고, '## 문제 분석' 에는
+  // severity 카드가 안 붙는 사고가 있었다.
+  function findSection(keywords) {
+    const heads = Array.from(body.querySelectorAll('h2'));
+    for (const k of keywords) {
+      const hit = heads.find((h) => h.textContent.includes(k));
+      if (hit) return hit;
+    }
+    return null;
+  }
+
+  // md 의 해당 섹션(h2 + 다음 h2 까지)을 통째로 걷어낸다.
+  // 두 섹션을 하나로 합칠 때 남는 쪽이 고아 제목으로 뜨는 것을 막는다.
+  function dropSection(keywords) {
+    const target = findSection(keywords);
+    if (!target) return;
+    let sib = target.nextElementSibling;
+    while (sib && sib.tagName !== 'H2') {
+      const next = sib.nextElementSibling;
+      sib.remove();
+      sib = next;
+    }
+    target.remove();
+  }
+
   function mountSection(keywords, fallbackTitle, html) {
     if (!html || body.style.display === 'none') return;
-    let target = null;
-    body.querySelectorAll('h2').forEach((h) => {
-      if (target) return;
-      if (keywords.some((k) => h.textContent.includes(k))) target = h;
-    });
+    const target = findSection(keywords);
     const node = document.createElement('div');
     node.innerHTML = html;
     if (target) {
@@ -625,10 +669,13 @@
   };
 
   let folderSeq = 0;
-  function buildTree(files) {
+  // stripRoot: 레이어 트리는 레이어명이 헤더에 이미 있으므로 `src/` 를 떼고 그린다.
+  // Before/After 는 `src/` 와 `app/` 두 뿌리를 구분해서 보여줘야 하므로 떼지 않는다.
+  function buildTree(files, stripRoot) {
     const root = {};
     files.forEach((f) => {
-      const parts = f.path.replace(/^src\//, '').split('/');
+      const raw = stripRoot ? f.path.replace(/^src\//, '') : f.path;
+      const parts = raw.split('/').filter(Boolean);
       let node = root;
       parts.forEach((part, idx) => {
         if (!node[part]) node[part] = (idx === parts.length - 1) ? { __file: f } : {};
@@ -637,19 +684,21 @@
     });
     return root;
   }
-  function renderTree(node, depth, color) {
+  // leaf(key, file, color) → 파일 행에서 아이콘 뒤에 붙일 html
+  // rowMeta(file) → { cls, attrs } 로 파일 행 자체에 클래스/속성을 더한다 (클릭 대상 지정용)
+  function renderTree(node, depth, color, leaf, rowMeta) {
     return Object.keys(node).filter((k) => k !== '__file').map((key) => {
       const child = node[key];
       const indent = depth > 0
         ? '<span style="width:' + (depth * 16) + 'px;display:inline-block"></span>' : '';
       if (child.__file) {
-        const f = child.__file;
-        return '<div class="tree-item"><div class="tree-item-inner">' +
+        const meta = rowMeta ? rowMeta(child.__file) : null;
+        return '<div class="tree-item">' +
+          '<div class="tree-item-inner' + (meta && meta.cls ? ' ' + meta.cls : '') + '"' +
+            (meta && meta.attrs ? meta.attrs : '') + '>' +
           '<div class="tree-indent">' + indent + '</div>' +
           '<span class="tree-file-icon">' + fileIcon(key) + '</span>' +
-          '<span class="tree-filename" style="color:' + esc(color) + '">' + esc(key) + '</span>' +
-          '<span class="tree-tag ' + esc(f.type) + '">' + esc(f.type) + '</span>' +
-          (f.desc ? '<span class="tree-desc">' + esc(f.desc) + '</span>' : '') +
+          leaf(key, child.__file, color) +
           '</div></div>';
       }
       const id = 'folder-' + (folderSeq++);
@@ -660,38 +709,126 @@
             '" style="font-size:16px;color:#58a6ff"></i></span>' +
           '<span class="tree-filename" style="color:' + esc(color) + ';opacity:.7">' + esc(key) + '/</span>' +
         '</div>' +
-        '<div id="' + id + '" class="tree-folder-children">' + renderTree(child, depth + 1, color) + '</div>' +
+        '<div id="' + id + '" class="tree-folder-children">' +
+          renderTree(child, depth + 1, color, leaf, rowMeta) + '</div>' +
         '</div>';
     }).join('');
   }
 
-  (function mountLayers() {
+  const layerLeaf = (key, f, color) =>
+    '<span class="tree-filename" style="color:' + esc(color) + '">' + esc(key) + '</span>' +
+    '<span class="tree-tag ' + esc(f.type) + '">' + esc(f.type) + '</span>' +
+    (f.desc ? '<span class="tree-desc">' + esc(f.desc) + '</span>' : '');
+
+  // beforeAfter.before 가 있으면(= migrate) 2컬럼 비교 뷰 하나로 합친다.
+  // 별도의 "구조 비교" 섹션을 두면 같은 FSD 트리를 두 번 그리게 된다.
+  (function mountStructure() {
     if (!PLAN.layers || !PLAN.layers.length) return;
     const layers = PLAN.layers.slice().sort((a, b) => (a.order || 0) - (b.order || 0));
+    const before = ((PLAN.beforeAfter || {}).before) || [];
+    const merged = before.length > 0;
 
-    let html = '<div class="fsd-flow">';
-    layers.forEach((layer, i) => {
-      if (i > 0) html += '<span class="fsd-flow-arrow">→</span>';
-      html += '<div class="fsd-flow-step" style="background:' + esc(layer.bg) + ';color:' + esc(layer.color) +
-        ';border-color:' + esc(layer.color) + '40">' + esc(layer.label) +
-        '<span class="count">' + layer.files.length + ' files</span></div>';
-    });
-    html += '</div>';
+    if (!merged) {
+      // ---- feature/refactor: 플로우 바 + 레이어별 파일트리
+      let html = '<div class="fsd-flow">';
+      layers.forEach((layer, i) => {
+        if (i > 0) html += '<span class="fsd-flow-arrow">→</span>';
+        html += '<div class="fsd-flow-step" style="background:' + esc(layer.bg) + ';color:' + esc(layer.color) +
+          ';border-color:' + esc(layer.color) + '40">' + esc(layer.label) +
+          '<span class="count">' + layer.files.length + ' files</span></div>';
+      });
+      html += '</div>';
 
-    layers.forEach((layer) => {
-      html += '<div class="layer-tree">' +
-        '<div class="layer-tree-head" style="background:' + esc(layer.bg) + '" data-layer-toggle="1">' +
-          '<span class="tree-file-icon"><i class="mdi mdi-folder-open" style="font-size:18px;color:' +
-            esc(layer.color) + '"></i></span>' +
-          '<span class="layer-name" style="color:' + esc(layer.color) + '">' + esc(layer.name) + '/</span>' +
-          '<span class="layer-desc" style="color:' + esc(layer.color) + '">' + esc(layer.desc || '') + '</span>' +
-          '<span class="file-count" style="color:' + esc(layer.color) + '">' + layer.files.length + '개</span>' +
-          '<span class="arrow-icon open" style="color:' + esc(layer.color) + '">▶</span>' +
+      layers.forEach((layer) => {
+        html += '<div class="layer-tree">' +
+          '<div class="layer-tree-head" style="background:' + esc(layer.bg) + '" data-layer-toggle="1">' +
+            '<span class="tree-file-icon"><i class="mdi mdi-folder-open" style="font-size:18px;color:' +
+              esc(layer.color) + '"></i></span>' +
+            '<span class="layer-name" style="color:' + esc(layer.color) + '">' + esc(layer.name) + '/</span>' +
+            '<span class="layer-desc" style="color:' + esc(layer.color) + '">' + esc(layer.desc || '') + '</span>' +
+            '<span class="file-count" style="color:' + esc(layer.color) + '">' + layer.files.length + '개</span>' +
+            '<span class="arrow-icon open" style="color:' + esc(layer.color) + '">▶</span>' +
+          '</div>' +
+          '<div class="tree-body open">' +
+            renderTree(buildTree(layer.files, true), 0, layer.color, layerLeaf) + '</div>' +
+          '</div>';
+      });
+
+      mountSection(['FSD 레이어 배치', '레이어 배치', '파일 배치'], 'FSD 레이어 배치', html);
+      return;
+    }
+
+    // ---- migrate: 현재 구조 | FSD 구조 2컬럼. 플로우 바는 폭을 잡아먹어 넣지 않는다.
+    const norm = (item) => (typeof item === 'string' ? { path: item } : item);
+    const moveList = (f) => {
+      const raw = f.moveTo || f.movesTo;   // movesTo 는 구버전 별칭
+      if (!raw) return [];
+      return Array.isArray(raw) ? raw : [raw];
+    };
+    const layerColors = {};
+    layers.forEach((l) => { layerColors[l.name] = l.color; });
+    const layerOf = (dest) => stripSrc(dest).split('/')[0];
+
+    // 좌: 문제 파일은 빨강. 클릭하면 우측에서 목적지를 하이라이트한다.
+    const beforeLeaf = (key, f) => {
+      const badges = moveList(f).map((d) => {
+        const layer = layerOf(d);
+        const c = layerColors[layer] || '#58a6ff';
+        return '<span class="before-move-tag" style="background:' + esc(c) + '20;color:' + esc(c) + '">' +
+          '<i class="mdi mdi-arrow-right" style="font-size:11px"></i> ' + esc(layer) + '/</span>';
+      }).join('');
+      return '<span class="tree-filename" style="color:' + (f.issue ? '#f85149' : 'var(--muted)') + '">' +
+        esc(key) + '</span>' +
+        (f.lines ? '<span class="ba-lines">' + esc(f.lines) + '줄</span>' : '') +
+        (f.issue ? '<span class="ba-dot" title="문제 파일"></span>' : '') +
+        (badges ? '<span class="before-move-tags">' + badges + '</span>' : '');
+    };
+    const beforeRowMeta = (f) => {
+      const dests = moveList(f);
+      if (!dests.length) return null;
+      return {
+        cls: 'before-file',
+        attrs: ' data-move-to="' + esc(dests.map(stripSrc).join('|')) + '"' +
+               ' title="클릭 → 이동 경로 하이라이트"',
+      };
+    };
+
+    // 우: layers 로 그린다. 그래야 data-fsd-path 가 moveTo 와 정확히 맞물린다.
+    const fsdRowMeta = (f) => ({ cls: '', attrs: ' data-fsd-path="' + esc(stripSrc(f.path)) + '"' });
+    let fsdTree = '';
+    layers.forEach((l) => {
+      const id = 'fsd-layer-' + l.name;
+      fsdTree += '<div class="tree-item">' +
+        '<div class="tree-item-inner tree-folder-toggle" data-folder="' + id + '" style="cursor:pointer">' +
+          '<span class="tree-file-icon"><i class="mdi mdi-folder-open" data-folder-icon="' + id +
+            '" style="font-size:16px;color:' + esc(l.color) + '"></i></span>' +
+          '<span class="tree-filename" style="color:' + esc(l.color) +
+            ';opacity:.85;font-weight:600">' + esc(l.name) + '/</span>' +
+          '<span class="layer-desc" style="color:' + esc(l.color) + '">' + esc(l.desc || '') + '</span>' +
+          '<span class="file-count" style="color:' + esc(l.color) + '">' + l.files.length + '개</span>' +
         '</div>' +
-        '<div class="tree-body open">' + renderTree(buildTree(layer.files), 0, layer.color) + '</div>' +
-        '</div>';
+        '<div id="' + id + '" class="tree-folder-children">' +
+          renderTree(buildTree(l.files, true), 1, l.color, layerLeaf, fsdRowMeta) +
+        '</div></div>';
     });
 
+    const panel = (cls, icon, title, inner) =>
+      '<div class="ba-panel"><div class="ba-title ' + cls + '">' +
+      '<i class="mdi ' + icon + '" style="font-size:16px"></i> ' + title + '</div>' +
+      '<div class="ba-tree">' + inner + '</div></div>';
+
+    const html = '<div class="ba-grid" id="ba-compare">' +
+      panel('before', 'mdi-folder-search',
+        '현재 구조 <span class="ba-count">' + before.length + '</span>' +
+        '<span style="opacity:.5;font-weight:400;font-size:11px">🔴 문제 · 클릭→이동 경로</span>',
+        renderTree(buildTree(before.map(norm), false), 0, '#8b949e', beforeLeaf, beforeRowMeta)) +
+      panel('after', 'mdi-folder-check',
+        'FSD 구조 <span class="ba-count">' +
+          layers.reduce((n, l) => n + l.files.length, 0) + '</span>', fsdTree) +
+      '</div>';
+
+    // 합친 뷰는 레이어 배치 섹션이 담는다. 남아 있는 "구조 비교" 섹션은 걷어낸다.
+    dropSection(['구조 비교', 'Before']);
     mountSection(['FSD 레이어 배치', '레이어 배치', '파일 배치'], 'FSD 레이어 배치', html);
   })();
 
@@ -890,28 +1027,36 @@
     mountSection(['문제', '현재 상태 분석'], '문제 분석', html);
   })();
 
-  // ---------------------------------------------------------------- Before → After (migrate)
-  (function mountBeforeAfter() {
-    const ba = PLAN.beforeAfter;
-    if (!ba || !ba.before || !ba.after) return;
-    const norm = (item) => (typeof item === 'string' ? { path: item } : item);
+  // 좌측 before 파일 클릭 → 우측 FSD 트리에서 목적지 하이라이트
+  function highlightMove(row) {
+    const scope = document.getElementById('ba-compare');
+    if (!scope) return;
+    scope.querySelectorAll('.before-file.active').forEach((e) => e.classList.remove('active'));
+    scope.querySelectorAll('.fsd-highlight').forEach((e) => e.classList.remove('fsd-highlight'));
+    row.classList.add('active');
 
-    const panel = (cls, icon, title, items, showDots) =>
-      '<div class="ba-panel"><div class="ba-title ' + cls + '">' +
-      '<i class="mdi ' + icon + '" style="font-size:16px"></i> ' + title + '</div>' +
-      '<ul class="ba-list">' + items.map(norm).map((it) =>
-        '<li>' + (showDots && it.issue ? '<span class="ba-dot"></span>' : '') +
-        '<span>' + esc(it.path) + '</span>' +
-        (it.movesTo ? '<span class="ba-moves">→ ' + esc(it.movesTo) + '</span>' : '') +
-        '</li>').join('') + '</ul></div>';
+    const wanted = (row.getAttribute('data-move-to') || '').split('|').filter(Boolean);
+    if (!wanted.length) return;
 
-    const html = '<div class="ba-grid">' +
-      panel('before', 'mdi-folder-search', '현재 구조 <span style="opacity:.5;font-weight:400;font-size:11px">(🔴 문제 파일)</span>', ba.before, true) +
-      panel('after', 'mdi-folder-check', 'FSD 구조', ba.after, false) +
-      '</div>';
-
-    mountSection(['구조 비교', 'Before'], 'Before → After', html);
-  })();
+    let first = null;
+    wanted.forEach((path) => {
+      const target = scope.querySelector('[data-fsd-path="' + path.replace(/"/g, '\\"') + '"]');
+      if (!target) return;
+      target.classList.add('fsd-highlight');
+      if (!first) first = target;
+      // 조상 폴더를 모두 펼쳐서 대상이 실제로 보이게 한다
+      let box = target.closest('.tree-folder-children');
+      while (box) {
+        box.classList.remove('collapsed');
+        const icon = document.querySelector('[data-folder-icon="' + box.id + '"]');
+        if (icon) icon.className = 'mdi mdi-folder-open';
+        box = box.parentElement ? box.parentElement.closest('.tree-folder-children') : null;
+      }
+    });
+    if (first && first.scrollIntoView) {
+      setTimeout(() => first.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+    }
+  }
 
   // ---------------------------------------------------------------- 이벤트 위임
   document.addEventListener('click', (ev) => {
@@ -929,7 +1074,10 @@
     if (head) {
       head.querySelector('.arrow-icon').classList.toggle('open');
       head.nextElementSibling.classList.toggle('open');
+      return;
     }
+    const beforeFile = ev.target.closest('.before-file');
+    if (beforeFile) highlightMove(beforeFile);
   });
 
   function copy(text) {
