@@ -45,6 +45,14 @@
     --radius: 12px;
     --shadow: 0 1px 3px rgba(0, 0, 0, .3), 0 1px 2px rgba(0, 0, 0, .2);
     --mono: 'SF Mono', Menlo, Consolas, monospace;
+    /* 페이지 폭. 파일 트리·2컬럼 비교 뷰·전수 표가 넓은 폭을 필요로 한다.
+       본문 산문만 --prose-w 로 따로 좁혀서 가독성을 지킨다. */
+    --page-w: 1400px;
+    --prose-w: 82ch;
+    /* 2컬럼 비교 뷰(before/after 트리)의 스크롤 높이.
+       파일 수가 많은 전수 계획서에서 560px 고정은 너무 낮았다.
+       화면 높이에 맞춰 늘리고, 아주 큰 모니터에서만 상한이 걸린다. */
+    --tree-h: min(80vh, 1200px);
   }
   * { box-sizing: border-box; }
   body {
@@ -56,7 +64,7 @@
     line-height: 1.55;
     -webkit-font-smoothing: antialiased;
   }
-  .wrap { max-width: 880px; margin: 0 auto; padding: 32px 20px 200px; }
+  .wrap { max-width: var(--page-w); margin: 0 auto; padding: 32px 24px 200px; }
 
   /* 헤더 */
   header.plan-head { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px 26px; box-shadow: var(--shadow); margin-bottom: 16px; }
@@ -126,14 +134,15 @@
   .plan-body h2 { font-size: 19px; border-bottom: 1px solid var(--border); padding-bottom: .25em; }
   .plan-body h3 { font-size: 16.5px; }
   .plan-body h4 { font-size: 15px; color: #adbac7; }
-  .plan-body p { margin: .6em 0; font-size: 14.5px; }
-  .plan-body ul,.plan-body ol { margin: .5em 0; padding-left: 1.4em; font-size: 14.5px; }
+  .plan-body p { margin: .6em 0; font-size: 14.5px; max-width: var(--prose-w); }
+  .plan-body ul,.plan-body ol { margin: .5em 0; padding-left: 1.4em; font-size: 14.5px; max-width: var(--prose-w); }
   .plan-body li { margin: .25em 0; }
   .plan-body strong { font-weight: 700; color: var(--text); }
   .plan-body code { background: #1c2128; color: #f78166; padding: 1.5px 6px; border-radius: 6px; font-size: 12.8px; font-family: var(--mono); }
   .plan-body pre.md-code { background: #0d1117; border: 1px solid var(--border); color: #e2e8f0; border-radius: 10px; padding: 14px 16px; overflow-x: auto; margin: .8em 0; }
   .plan-body pre.md-code code { background: none; color: inherit; padding: 0; font-size: 12.8px; }
-  .plan-body blockquote { margin: .8em 0; padding: 8px 16px; border-left: 4px solid var(--primary-border); background: var(--primary-weak); color: #adbac7; border-radius: 0 8px 8px 0; font-size: 14px; }
+  .plan-body blockquote { margin: .8em 0; padding: 8px 16px; border-left: 4px solid var(--primary-border); background: var(--primary-weak); color: #adbac7; border-radius: 0 8px 8px 0; font-size: 14px; max-width: var(--prose-w); }
+  .plan-body blockquote p,.plan-body blockquote ul,.plan-body blockquote ol { max-width: none; }
   .plan-body a { color: var(--primary); text-decoration: none; }
   .plan-body a:hover { text-decoration: underline; }
   .plan-body table { border-collapse: collapse; width: 100%; margin: .9em 0; font-size: 13.5px; display: block; overflow-x: auto; }
@@ -168,7 +177,7 @@
   .tree-tag.MODIFY { background: var(--warn-weak); color: var(--warn); }
   .tree-tag.DELETE { background: var(--bad-weak); color: var(--bad); }
   .tree-tag.MOVE { background: #2d1f40; color: #a371f7; }
-  .tree-desc { font-size: 12px; color: var(--muted); margin-left: auto; padding-left: 12px; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px; }
+  .tree-desc { font-size: 12px; color: var(--muted); margin-left: auto; padding-left: 12px; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 460px; }
   .tree-folder-toggle:hover { background: rgba(255,255,255,.03); border-radius: 4px; }
   .tree-folder-children.collapsed { display: none; }
   @media(max-width:600px) { .tree-desc { display: none; } }
@@ -266,13 +275,16 @@
   .ba-title { padding: 10px 14px; font-size: 12px; font-weight: 700; background: #1c2128; display: flex; align-items: center; gap: 6px; }
   .ba-title.before { color: var(--muted); }
   .ba-title.after { color: var(--good); }
-  .ba-tree { padding: 8px 6px; max-height: 560px; overflow-y: auto; background: #1c2128; }
+  .ba-tree { padding: 8px 6px; max-height: var(--tree-h); overflow-y: auto; background: #1c2128; resize: vertical; }
   .ba-tree .tree-item-inner { padding: 4px 8px 4px 4px; }
   .ba-tree .tree-filename { font-size: 12px; }
   .ba-tree .file-count { font-size: 10px; font-weight: 600; opacity: .5; margin-left: auto; }
   .ba-tree .layer-desc { font-size: 11px; opacity: .6; margin-left: 8px; }
   .ba-count { font-family: var(--mono); font-size: 10px; font-weight: 700; background: rgba(255,255,255,.08); padding: 1px 6px; border-radius: 999px; margin: 0 6px 0 2px; }
   .ba-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--bad); flex-shrink: 0; margin-left: 6px; }
+  /* 병합되어 사라지는 파일 — 단순 이동과 반드시 구분되어야 한다 */
+  .tree-filename.merged { text-decoration: line-through; text-decoration-color: #a371f7; opacity: .7; }
+  .ba-merge-tag { font-size: 10px; font-weight: 700; font-family: var(--mono); background: #2d1f40; color: #a371f7; border: 1px solid #4a3570; padding: 1px 6px; border-radius: 4px; margin-left: 8px; flex-shrink: 0; }
   .ba-lines { font-family: var(--mono); font-size: 10px; font-weight: 600; color: var(--warn); background: var(--warn-weak); padding: 1px 5px; border-radius: 3px; margin-left: 8px; flex-shrink: 0; }
   /* 좌측 before 행: 클릭 대상. 이동 경로 배지는 hover/선택 시에만 드러낸다 */
   .before-file { cursor: pointer; transition: background .12s; border-radius: 4px; }
@@ -290,7 +302,7 @@
 
   /* 하단 고정 액션 바 */
   .actionbar { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(13,17,23,.92); backdrop-filter: blur(8px); border-top: 1px solid var(--border); box-shadow: 0 -2px 12px rgba(0,0,0,.3); padding: 14px 20px; }
-  .actionbar-inner { max-width: 880px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+  .actionbar-inner { max-width: var(--page-w); margin: 0 auto; display: flex; align-items: center; gap: 12px; }
   .status { font-size: 13px; color: var(--muted); flex: 1; }
   .status b { color: var(--text); }
   button { font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; border-radius: 9px; padding: 11px 18px; border: 1px solid var(--border); background: #21262d; color: var(--text); transition: filter .12s, background .12s; }
@@ -671,10 +683,17 @@
   let folderSeq = 0;
   // stripRoot: 레이어 트리는 레이어명이 헤더에 이미 있으므로 `src/` 를 떼고 그린다.
   // Before/After 는 `src/` 와 `app/` 두 뿌리를 구분해서 보여줘야 하므로 떼지 않는다.
-  function buildTree(files, stripRoot) {
+  // stripLayer: 레이어명(문자열)을 주면 `src/<레이어>/` 접두사를 함께 걷어낸다.
+  // 레이어 헤더가 이미 레이어명을 보여주므로, 안 걷어내면 `shared/ > shared/` 처럼 중복된다.
+  function buildTree(files, stripLayer) {
     const root = {};
     files.forEach((f) => {
-      const raw = stripRoot ? f.path.replace(/^src\//, '') : f.path;
+      let raw = f.path;
+      if (stripLayer) {
+        raw = raw.replace(/^src\//, '');
+        const pre = stripLayer + '/';
+        if (raw.startsWith(pre)) raw = raw.slice(pre.length);
+      }
       const parts = raw.split('/').filter(Boolean);
       let node = root;
       parts.forEach((part, idx) => {
@@ -750,7 +769,7 @@
             '<span class="arrow-icon open" style="color:' + esc(layer.color) + '">▶</span>' +
           '</div>' +
           '<div class="tree-body open">' +
-            renderTree(buildTree(layer.files, true), 0, layer.color, layerLeaf) + '</div>' +
+            renderTree(buildTree(layer.files, layer.name), 0, layer.color, layerLeaf) + '</div>' +
           '</div>';
       });
 
@@ -770,17 +789,24 @@
     const layerOf = (dest) => stripSrc(dest).split('/')[0];
 
     // 좌: 문제 파일은 빨강. 클릭하면 우측에서 목적지를 하이라이트한다.
+    // f.merge 는 "다른 파일로 흡수되어 사라지는 파일" — 단순 이동과 구분해서 그린다.
     const beforeLeaf = (key, f) => {
-      const badges = moveList(f).map((d) => {
+      const badges = f.merge ? '' : moveList(f).map((d) => {
         const layer = layerOf(d);
         const c = layerColors[layer] || '#58a6ff';
         return '<span class="before-move-tag" style="background:' + esc(c) + '20;color:' + esc(c) + '">' +
           '<i class="mdi mdi-arrow-right" style="font-size:11px"></i> ' + esc(layer) + '/</span>';
       }).join('');
-      return '<span class="tree-filename" style="color:' + (f.issue ? '#f85149' : 'var(--muted)') + '">' +
-        esc(key) + '</span>' +
+      const mergeTag = f.merge
+        ? '<span class="ba-merge-tag" title="이 파일은 사라집니다. 내용은 ' +
+          esc(moveList(f)[0] || '') + ' 로 흡수됩니다">병합·삭제</span>'
+        : '';
+      const nameColor = f.merge ? '#a371f7' : (f.issue ? '#f85149' : 'var(--muted)');
+      return '<span class="tree-filename' + (f.merge ? ' merged' : '') +
+        '" style="color:' + nameColor + '">' + esc(key) + '</span>' +
         (f.lines ? '<span class="ba-lines">' + esc(f.lines) + '줄</span>' : '') +
-        (f.issue ? '<span class="ba-dot" title="문제 파일"></span>' : '') +
+        (f.issue && !f.merge ? '<span class="ba-dot" title="문제 파일"></span>' : '') +
+        mergeTag +
         (badges ? '<span class="before-move-tags">' + badges + '</span>' : '');
     };
     const beforeRowMeta = (f) => {
@@ -808,7 +834,7 @@
           '<span class="file-count" style="color:' + esc(l.color) + '">' + l.files.length + '개</span>' +
         '</div>' +
         '<div id="' + id + '" class="tree-folder-children">' +
-          renderTree(buildTree(l.files, true), 1, l.color, layerLeaf, fsdRowMeta) +
+          renderTree(buildTree(l.files, l.name), 1, l.color, layerLeaf, fsdRowMeta) +
         '</div></div>';
     });
 
@@ -817,14 +843,29 @@
       '<i class="mdi ' + icon + '" style="font-size:16px"></i> ' + title + '</div>' +
       '<div class="ba-tree">' + inner + '</div></div>';
 
+    const mergeCount = before.filter((f) => f.merge).length;
+    const beforeLegend = '<span style="opacity:.5;font-weight:400;font-size:11px">🔴 문제 · 클릭→이동 경로</span>' +
+      (mergeCount
+        ? '<span class="ba-merge-tag" style="margin-left:4px">병합·삭제 ' + mergeCount + '</span>'
+        : '');
+
+    // 두 패널은 서로 다른 것을 센다. 좌=마이그레이션 전 원본 파일,
+    // 우=마이그레이션 후 항목(신규 index.ts 포함). 그대로 두면 숫자를 빼보고 안 맞아 혼란스럽다.
+    const tally = (t) => layers.reduce(
+      (n, l) => n + l.files.filter((f) => (f.type || 'MOVE') === t).length, 0);
+    const afterTotal = layers.reduce((n, l) => n + l.files.length, 0);
+    const parts = [['MOVE', '이동'], ['CREATE', '신규'], ['MODIFY', '유지']]
+      .map(([t, ko]) => [ko, tally(t)]).filter(([, n]) => n > 0)
+      .map(([ko, n]) => ko + ' ' + n).join(' · ');
+    const afterNote = parts
+      ? '<span style="opacity:.5;font-weight:400;font-size:11px">' + parts + '</span>' : '';
+
     const html = '<div class="ba-grid" id="ba-compare">' +
       panel('before', 'mdi-folder-search',
-        '현재 구조 <span class="ba-count">' + before.length + '</span>' +
-        '<span style="opacity:.5;font-weight:400;font-size:11px">🔴 문제 · 클릭→이동 경로</span>',
-        renderTree(buildTree(before.map(norm), false), 0, '#8b949e', beforeLeaf, beforeRowMeta)) +
+        '현재 구조 <span class="ba-count">' + before.length + '</span>' + beforeLegend,
+        renderTree(buildTree(before.map(norm), null), 0, '#8b949e', beforeLeaf, beforeRowMeta)) +
       panel('after', 'mdi-folder-check',
-        'FSD 구조 <span class="ba-count">' +
-          layers.reduce((n, l) => n + l.files.length, 0) + '</span>', fsdTree) +
+        'FSD 구조 <span class="ba-count">' + afterTotal + '</span>' + afterNote, fsdTree) +
       '</div>';
 
     // 합친 뷰는 레이어 배치 섹션이 담는다. 남아 있는 "구조 비교" 섹션은 걷어낸다.

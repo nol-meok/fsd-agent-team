@@ -202,7 +202,9 @@ HTML 렌더러는 아래 h2 제목을 키워드로 찾아 해당 섹션을 시�
   "beforeAfter": {
     "before": [
       { "path": "src/components/ProductPage.tsx", "lines": 420, "issue": true,
-        "moveTo": ["src/widgets/product-page/ui/ProductPage.tsx", "src/entities/product/api/productApi.ts"] }
+        "moveTo": ["src/widgets/product-page/ui/ProductPage.tsx", "src/entities/product/api/productApi.ts"] },
+      { "path": "src/components/Overlay.tsx", "lines": 13, "issue": true, "merge": true,
+        "moveTo": "src/widgets/product-page/ui/ProductPage.tsx" }
     ],
     "after": ["src/widgets/product-page/ui/ProductPage.tsx"]
   },
@@ -248,6 +250,11 @@ HTML 렌더러는 아래 h2 제목을 키워드로 찾아 해당 섹션을 시�
   렌더러가 이 값을 `layers[].files[].path` 와 **문자열 정확 매칭**해서 오른쪽 FSD 트리의
   해당 행을 찾는다. 매칭이 안 되면 클릭해도 아무 일이 없다 (조용히 실패한다).
   옮기지 않고 그대로 남는 파일은 `moveTo` 를 생략한다 — 클릭 대상에서 빠진다
+- `beforeAfter.before[].merge`: `true` 면 **다른 파일로 흡수되어 사라지는 파일**이다.
+  왼쪽 패널에서 보라색 취소선 + `병합·삭제` 배지로 그려지고, `→ widgets/` 화살표 태그는 빼준다
+  (그 위치로 가는 게 아니라 다른 파일 안으로 들어가기 때문이다).
+  `moveTo` 에는 **흡수 대상 파일 경로**를 넣는다 — 클릭하면 그 파일이 하이라이트된다.
+  이 플래그가 없으면 단순 이동과 화면에서 구분되지 않는다
 - `beforeAfter.after`: 오른쪽 패널은 `layers` 로 그려지므로 **화면에 쓰이지 않는다.**
   `deps` 와 같은 기계 판독용 기록이며, `layers` 의 경로 목록과 일치시켜 둔다
 - `layers[].files[].path` 에 중괄호 글롭(`{a,b}.tsx`)이나 여러 경로를 한 문자열에
@@ -270,6 +277,32 @@ HTML 렌더러는 아래 h2 제목을 키워드로 찾아 해당 섹션을 시�
 | widgets | `#a371f7` | `#2d1f40` |
 | app | `#58a6ff` | `#1f2d40` |
 | 검증 | `#3fb950` | `#1a3028` |
+
+---
+
+## 레이아웃 조절 (docs/plan-template.html)
+
+계획서가 커지면 기본값으로는 좁다. CSS 변수 3개만 고치면 된다.
+
+| 변수 | 기본값 | 용도 |
+|------|--------|------|
+| `--page-w` | `1400px` | 본문 컨테이너 + 하단 액션바 폭 |
+| `--prose-w` | `82ch` | **산문만** 따로 제한. 표·트리·비교뷰는 전체 폭을 쓴다 |
+| `--tree-h` | `min(80vh, 1200px)` | 2컬럼 비교 뷰 스크롤 높이. 패널은 드래그로도 늘릴 수 있다 |
+
+컨테이너만 넓히고 산문을 그대로 두면 한 줄이 1400px까지 뻗어 오히려 읽기 나빠진다.
+그래서 `p` / `ul` / `blockquote` 에만 `--prose-w` 를 건다.
+
+**템플릿을 고치면 기존 계획서는 자동으로 갱신되지 않는다.** `.plan.json` 이 있는 것만
+`--force` 로 재빌드된다. PLAN JSON 이 없는 계획서는 옛 레이아웃 그대로 남는다.
+
+### 트리 렌더링 주의
+
+- 레이어별 트리는 `src/<레이어>/` 접두사를 함께 걷어낸다. 안 그러면 레이어 헤더가
+  이미 `shared/` 를 보여주는데 트리 첫 노드로 `shared/` 가 또 나와 중복된다
+- 두 패널의 숫자는 **서로 다른 것을 센다.** 왼쪽은 마이그레이션 **전 원본 파일**,
+  오른쪽은 마이그레이션 **후 항목**(신규 `index.ts` 포함, 고정 파일 제외).
+  그냥 두면 빼보고 안 맞아 혼란스럽다 — 오른쪽 헤더에 `이동 N · 신규 N · 유지 N` 내역을 붙인다
 
 ---
 

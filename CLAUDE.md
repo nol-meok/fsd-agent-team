@@ -107,5 +107,8 @@ python3 scripts/build-plan-html.py plans/유형/YYYYMMDD-제목.md \
 - **계획서 템플릿·PLAN 스키마**: docs/plan-template.md
 - **계획서 HTML 빌더**: scripts/build-plan-html.py
 - **FSD 자동 검사**: scripts/lint-fsd.ts (`npx tsx scripts/lint-fsd.ts <src경로>`)
+- **레이어 판정 도구**: scripts/classify-layers.py — 파일명이 아니라 **파일 내부 코드**로
+  features/widgets 를 판정하고, 같은 레이어 교차 import 를 찾는다. 애매한 것은 목록으로만
+  내놓으므로 **반드시 읽고 판정한다**
 - **팀원 프로필**: docs/agents/*.md
 - **디자인 시스템 도구**: tools/ui-ux-pro-max/ (`/plan` 4단계에서 사용)
